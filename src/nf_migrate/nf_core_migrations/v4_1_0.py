@@ -19,212 +19,166 @@ operations = [
     Replace(
         '.github/actions/nf-test/action.yml',
         old="""\
-    - name: Setup Nextflow
       uses: nf-core/setup-nextflow@b4ec1bc7c16a94435159de94a05253542fddf6ef # v3
-      with:
 """,
         new="""\
-    - name: Setup Nextflow
       uses: nf-core/setup-nextflow@893c28b667aedeba26e37f296d260ccc5bc4d914 # v3
-      with:
 """,
     ),
     Replace(
         '.github/actions/nf-test/action.yml',
         old="""\
-    - name: Set up Python
       uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-      with:
 """,
         new="""\
-    - name: Set up Python
       uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-      with:
 """,
     ),
     Replace(
         '.github/actions/nf-test/action.yml',
         old="""\
-      if: contains(inputs.profile, 'singularity')
       uses: eWaterCycle/setup-apptainer@4bb22c52d4f63406c49e94c804632975787312b3 # v2.0.0
-
 """,
         new="""\
-      if: contains(inputs.profile, 'singularity')
       uses: eWaterCycle/setup-apptainer@3f706d898c9db585b1d741b4692e66755f3a1b40 # v2.0.0
-
 """,
     ),
     Replace(
         '.github/workflows/clean-up.yml',
         old="""\
-    steps:
       - uses: actions/stale@b5d41d4e1d5dceea10e7104786b73624c18a190f # v10
-        with:
 """,
         new="""\
-    steps:
       - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11
-        with:
 """,
     ),
     Replace(
         '.github/workflows/download_pipeline.yml',
         old="""\
-      - name: Check out pipeline code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
 """,
         new="""\
-      - name: Check out pipeline code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
 """,
     ),
     Replace(
         '.github/workflows/download_pipeline.yml',
         old="""\
-      - name: Install Nextflow
         uses: nf-core/setup-nextflow@b4ec1bc7c16a94435159de94a05253542fddf6ef # v3
-
 """,
         new="""\
-      - name: Install Nextflow
         uses: nf-core/setup-nextflow@893c28b667aedeba26e37f296d260ccc5bc4d914 # v3
-
 """,
     ),
     Replace(
         '.github/workflows/download_pipeline.yml',
         old="""\
-
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
 """,
         new="""\
-
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-        with:
 """,
     ),
     Replace(
         '.github/workflows/fix_linting.yml',
         old="""\
-      # Use the @nf-core-bot token to check out so we can push later
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
 """,
         new="""\
-      # Use the @nf-core-bot token to check out so we can push later
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
 """,
     ),
     Replace(
         '.github/workflows/fix_linting.yml',
         old="""\
-      - name: Install Nextflow
         uses: nf-core/setup-nextflow@b4ec1bc7c16a94435159de94a05253542fddf6ef # v3
-
 """,
         new="""\
-      - name: Install Nextflow
         uses: nf-core/setup-nextflow@893c28b667aedeba26e37f296d260ccc5bc4d914 # v3
-
 """,
     ),
     Replace(
         '.github/workflows/fix_linting.yml',
         old="""\
-        id: prek
         uses: j178/prek-action@6ad80277337ad479fe43bd70701c3f7f8aa74db3 # v2
-        continue-on-error: true
 """,
         new="""\
-        id: prek
         uses: j178/prek-action@5337cb91e0fa35a7ff31b9ca345126d8bbbcdf16 # v2
-        continue-on-error: true
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-    steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+""",
+        new="""\
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+""",
+    ),
+    Replace(
+        '.github/workflows/linting.yml',
+        old="""\
 
       - name: Install Nextflow
         uses: nf-core/setup-nextflow@b4ec1bc7c16a94435159de94a05253542fddf6ef # v3
 
       - name: Run prek
-        uses: j178/prek-action@6ad80277337ad479fe43bd70701c3f7f8aa74db3 # v2
-
 """,
         new="""\
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Nextflow
         uses: nf-core/setup-nextflow@893c28b667aedeba26e37f296d260ccc5bc4d914 # v3
 
       - name: Run prek
-        uses: j178/prek-action@5337cb91e0fa35a7ff31b9ca345126d8bbbcdf16 # v2
-
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-      - name: Check out pipeline code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
+        uses: j178/prek-action@6ad80277337ad479fe43bd70701c3f7f8aa74db3 # v2
 """,
         new="""\
-      - name: Check out pipeline code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
+        uses: j178/prek-action@5337cb91e0fa35a7ff31b9ca345126d8bbbcdf16 # v2
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-      - name: Install Nextflow
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+""",
+        new="""\
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+""",
+    ),
+    Replace(
+        '.github/workflows/linting.yml',
+        old="""\
         uses: nf-core/setup-nextflow@b4ec1bc7c16a94435159de94a05253542fddf6ef # v3
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
 """,
         new="""\
-      - name: Install Nextflow
         uses: nf-core/setup-nextflow@893c28b667aedeba26e37f296d260ccc5bc4d914 # v3
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-        with:
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-      - name: Setup uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-
 """,
         new="""\
-      - name: Setup uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-      - name: Run nf-core pipelines lint
         if: ${{ github.base_ref != 'master' || github.base_ref != 'main' }}
-        env:
 """,
         new="""\
-      - name: Run nf-core pipelines lint
         if: ${{ github.base_ref != 'master' && github.base_ref != 'main' }}
-        env:
 """,
     ),
     Replace(
@@ -256,14 +210,10 @@ operations = [
     Replace(
         '.github/workflows/template-version-comment.yml',
         old="""\
-      - name: Check out pipeline code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
 """,
         new="""\
-      - name: Check out pipeline code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
 """,
     ),
     CreateFile(
@@ -318,14 +268,10 @@ exit "$status"
     Replace(
         '.pre-commit-config.yaml',
         old="""\
-        additional_dependencies:
           - prettier@3.8.3
-  - repo: https://github.com/pre-commit/pre-commit-hooks
 """,
         new="""\
-        additional_dependencies:
           - prettier@3.9.6
-  - repo: https://github.com/pre-commit/pre-commit-hooks
 """,
     ),
     Replace(
@@ -354,27 +300,19 @@ exit "$status"
     Replace(
         'CHANGELOG.md',
         old="""\
-
 ## v{{pipeline_version}} - [date]
-
 """,
         new="""\
-
 ## v{{pipeline_version}} - [unreleased<!-- TODO nf-core: replace with date on release -->]
-
 """,
     ),
     Replace(
         'README.md',
         old="""\
-[![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.10.4-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-4.0.3-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/4.0.3)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
         new="""\
-[![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.10.4-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-4.1.0-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/4.1.0)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
     ),
     Replace(
@@ -394,9 +332,15 @@ exit "$status"
     Replace(
         'conf/igenomes.config',
         old="""\
-
 params {
-    // illumina iGenomes reference file paths
+""",
+        new="""\
+params.genomes = [
+""",
+    ),
+    Replace(
+        'conf/igenomes.config',
+        old="""\
     genomes {
         'GRCh37' {
             fasta       = "${params.igenomes_base}/Homo_sapiens/Ensembl/GRCh37/Sequence/WholeGenomeFasta/genome.fa"
@@ -827,9 +771,6 @@ params {
 }
 """,
         new="""\
-
-params.genomes = [
-    // illumina iGenomes reference file paths
     'GRCh37' : [
         fasta       : "${params.igenomes_base}/Homo_sapiens/Ensembl/GRCh37/Sequence/WholeGenomeFasta/genome.fa",
         bwa         : "${params.igenomes_base}/Homo_sapiens/Ensembl/GRCh37/Sequence/BWAIndex/version0.6.0/",
@@ -1261,128 +1202,92 @@ params.genomes = [
     Replace(
         'conf/modules.config',
         old="""\
-            path: { "${params.outdir}/multiqc" },
             mode: params.publish_dir_mode,
             saveAs: { filename -> filename.equals('versions.yml') ? null : filename }
-        ]
 """,
         new="""\
-            path: { "${params.outdir}/multiqc" },
             mode: params.publish_dir_mode
-        ]
 """,
     ),
     Replace(
         'docs/CONTRIBUTING.md',
         old="""\
-
 - Keep PRs as small and focussed as possible
-- Avoid any unnecessary changes, such as moving or refactoring code (unless that is the explicit intention of the PR)
 """,
         new="""\
-
 - Keep PRs as small and focused as possible
-- Avoid any unnecessary changes, such as moving or refactoring code (unless that is the explicit intention of the PR)
 """,
     ),
     Replace(
         'docs/CONTRIBUTING.md',
         old="""\
-
 For more detail, see the the [blog post](https://nf-co.re/blog/2026/statement-on-ai) for a statement from the nf-core/core team.
-
 """,
         new="""\
-
 For more detail, see the [blog post](https://nf-co.re/blog/2026/statement-on-ai) for a statement from the nf-core/core team.
-
 """,
     ),
     Replace(
         'docs/CONTRIBUTING.md',
         old="""\
-- [ ] Update `usage.md`, `output.md`, and `citation.md` as appropriate.
 - [ ] [Lint](lint) the code with nf-core/tools.
-- [ ] Update any diagrams or pipeline images as necessary.
 """,
         new="""\
-- [ ] Update `usage.md`, `output.md`, and `citation.md` as appropriate.
 - [ ] [Lint](#lint-tests) the code with nf-core/tools.
-- [ ] Update any diagrams or pipeline images as necessary.
 """,
     ),
     Replace(
         'docs/CONTRIBUTING.md',
         old="""\
-
 Values assigned within these labels can be dynamically passed to a tool using the the `${task.cpus}` and `${task.memory}` Nextflow variables in the `script:` block of a module (see an example in the [modules repository](https://github.com/nf-core/modules/blob/bd1b6a40f55933d94b8c9ca94ec8c1ea0eaf4b82/modules/nf-core/samtools/bam2fq/main.nf#L30)).
-
 """,
         new="""\
-
 Values assigned within these labels can be dynamically passed to a tool using the `${task.cpus}` and `${task.memory}` Nextflow variables in the `script:` block of a module (see an example in the [modules repository](https://github.com/nf-core/modules/blob/bd1b6a40f55933d94b8c9ca94ec8c1ea0eaf4b82/modules/nf-core/samtools/bam2fq/main.nf#L30)).
-
 """,
     ),
     Replace(
         'docs/output.md',
         old="""\
-
 [Nextflow](https://www.nextflow.io/docs/latest/tracing.html) provides excellent functionality for generating various reports relevant to the running and execution of the pipeline. This will allow you to troubleshoot errors with the running of the pipeline, and also provide you with other information such as launch commands, run times and resource usage.
 """,
         new="""\
-
 [Nextflow](https://docs.seqera.io/platform-cloud/reports/overview) provides excellent functionality for generating various reports relevant to the running and execution of the pipeline. This will allow you to troubleshoot errors with the running of the pipeline, and also provide you with other information such as launch commands, run times and resource usage.
 """,
     ),
     Replace(
         'docs/usage.md',
         old="""\
-- `wave`
   - A generic configuration profile to enable [Wave](https://seqera.io/wave/) containers. Use together with one of the above (requires Nextflow ` 24.03.0-edge` or later).
-- `conda`
 """,
         new="""\
-- `wave`
   - A generic configuration profile to enable [Wave](https://seqera.io/wave/) containers. Use together with one of the above (requires Nextflow `24.03.0-edge` or later).
-- `conda`
 """,
     ),
     Replace(
         'subworkflows/local/utils_nfcore_{{pipeline_name}}_pipeline/main.nf',
         old="""\
-        after_text,
         command
-    )
 """,
         new="""\
-        after_text,
         command,
         false
-    )
 """,
     ),
     Replace(
         'tests/nextflow.config',
         old="""\
-    modules_testdata_base_path = 'https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/'
     pipelines_testdata_base_path = 'https://raw.githubusercontent.com/nf-core/test-datasets/refs/heads/{{pipeline_name}}/'
-}
 """,
         new="""\
-    modules_testdata_base_path = 'https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/'
     pipelines_testdata_base_path = 'https://raw.githubusercontent.com/nf-core/test-datasets/{{pipeline_name}}/'
-}
 """,
     ),
     Replace(
         'tests/nextflow.config',
         old="""\
-
 aws.client.anonymous = true // fixes S3 access issues on self-hosted runners
 """,
         new="""\
-
 // Fixes S3 access issues on self-hosted runners
 aws.client.anonymous = true
 """,

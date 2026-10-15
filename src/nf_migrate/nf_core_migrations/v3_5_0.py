@@ -19,92 +19,64 @@ operations = [
     Replace(
         '.github/workflows/awsfulltest.yml',
         old="""\
-
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
 """,
         new="""\
-
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
-        with:
 """,
     ),
     Replace(
         '.github/workflows/awstest.yml',
         old="""\
-
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
 """,
         new="""\
-
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
-        with:
 """,
     ),
     Replace(
         '.github/workflows/download_pipeline.yml',
         old="""\
-      - name: Upload Nextflow logfile for debugging purposes
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
 """,
         new="""\
-      - name: Upload Nextflow logfile for debugging purposes
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
-        with:
 """,
     ),
     Replace(
         '.github/workflows/fix_linting.yml',
         old="""\
-      # Use the @nf-core-bot token to check out so we can push later
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-        with:
 """,
         new="""\
-      # Use the @nf-core-bot token to check out so we can push later
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-        with:
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-    steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-
 """,
         new="""\
-    steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-      - name: Check out pipeline code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-
 """,
         new="""\
-      - name: Check out pipeline code
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-        if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
 """,
         new="""\
-        if: ${{ always() }}
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
-        with:
 """,
     ),
     Replace(
@@ -139,44 +111,41 @@ operations = [
       - name: get description
         id: get_topics
         run: |
-          echo "description=$(curl -s https://nf-co.re/pipelines.json | jq -r '.remote_workflows[] | select(.full_name == "${{ github.repository }}") | .description' >> $GITHUB_OUTPUT
-
-      - uses: rzr/fediverse-action@master
 """,
         new="""\
       - name: get description
         id: get_description
         run: |
-          echo "description=$(curl -s https://nf-co.re/pipelines.json | jq -r '.remote_workflows[] | select(.full_name == "${{ github.repository }}") | .description')" >> $GITHUB_OUTPUT
-      - uses: rzr/fediverse-action@master
 """,
     ),
     Replace(
         '.github/workflows/release-announcements.yml',
         old="""\
-            Pipeline release! ${{ github.repository }} v${{ github.event.release.tag_name }} - ${{ github.event.release.name }}!
+          echo "description=$(curl -s https://nf-co.re/pipelines.json | jq -r '.remote_workflows[] | select(.full_name == "${{ github.repository }}") | .description' >> $GITHUB_OUTPUT
+
+""",
+        new="""\
+          echo "description=$(curl -s https://nf-co.re/pipelines.json | jq -r '.remote_workflows[] | select(.full_name == "${{ github.repository }}") | .description')" >> $GITHUB_OUTPUT
+""",
+    ),
+    Replace(
+        '.github/workflows/release-announcements.yml',
+        old="""\
 
             ${{ steps.get_topics.outputs.description }}
 
-            Please see the changelog: ${{ github.event.release.html_url }}
 """,
         new="""\
-            Pipeline release! ${{ github.repository }} v${{ github.event.release.tag_name }} - ${{ github.event.release.name }}!
             ${{ steps.get_description.outputs.description }}
-            Please see the changelog: ${{ github.event.release.html_url }}
 """,
     ),
     Replace(
         '.github/workflows/template-version-comment.yml',
         old="""\
-      - name: Check out pipeline code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-        with:
 """,
         new="""\
-      - name: Check out pipeline code
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-        with:
 """,
     ),
     Replace(
@@ -193,27 +162,19 @@ subworkflows/nf-core/
     Replace(
         'README.md',
         old="""\
-
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new/nf-core/{{pipeline_name}})
-[![GitHub Actions CI Status](https://github.com/nf-core/{{pipeline_name}}/actions/workflows/nf-test.yml/badge.svg)](https://github.com/nf-core/{{pipeline_name}}/actions/workflows/nf-test.yml)
 """,
         new="""\
-
 [![Open in GitHub Codespaces](https://img.shields.io/badge/Open_In_GitHub_Codespaces-black?labelColor=grey&logo=github)](https://github.com/codespaces/new/nf-core/{{pipeline_name}})
-[![GitHub Actions CI Status](https://github.com/nf-core/{{pipeline_name}}/actions/workflows/nf-test.yml/badge.svg)](https://github.com/nf-core/{{pipeline_name}}/actions/workflows/nf-test.yml)
 """,
     ),
     Replace(
         'README.md',
         old="""\
-[![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-3.4.1-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/3.4.1)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
         new="""\
-[![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-3.5.0-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/3.5.0)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
     ),
     Replace(
@@ -232,116 +193,91 @@ aws.client.anonymous = !params.igenomes_ignore && params.igenomes_base?.startsWi
     Replace(
         'subworkflows/local/utils_nfcore_{{pipeline_name}}_pipeline/main.nf',
         old="""\
-
     ch_versions = Channel.empty()
-
 """,
         new="""\
-
     ch_versions = channel.empty()
-
 """,
     ),
     Replace(
         'subworkflows/local/utils_nfcore_{{pipeline_name}}_pipeline/main.nf',
-        old='"""\n    after_text = """${workflow.manifest.doi ? "\\n* The pipeline\\n" : ""}${workflow.manifest.doi.tokenize(",").collect { "    https://doi.org/${it.trim().replace(\'https://doi.org/\',\'\')}"}.join("\\n")}${workflow.manifest.doi ? "\\n" : ""}\n* The nf-core framework\n',
-        new='"""\n    after_text = """${workflow.manifest.doi ? "\\n* The pipeline\\n" : ""}${workflow.manifest.doi.tokenize(",").collect { doi -> "    https://doi.org/${doi.trim().replace(\'https://doi.org/\',\'\')}"}.join("\\n")}${workflow.manifest.doi ? "\\n" : ""}\n* The nf-core framework\n',
+        old='    after_text = """${workflow.manifest.doi ? "\\n* The pipeline\\n" : ""}${workflow.manifest.doi.tokenize(",").collect { "    https://doi.org/${it.trim().replace(\'https://doi.org/\',\'\')}"}.join("\\n")}${workflow.manifest.doi ? "\\n" : ""}\n',
+        new='    after_text = """${workflow.manifest.doi ? "\\n* The pipeline\\n" : ""}${workflow.manifest.doi.tokenize(",").collect { doi -> "    https://doi.org/${doi.trim().replace(\'https://doi.org/\',\'\')}"}.join("\\n")}${workflow.manifest.doi ? "\\n" : ""}\n',
     ),
     Replace(
         'subworkflows/local/utils_nfcore_{{pipeline_name}}_pipeline/main.nf',
         old="""\
-
     Channel
-        .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
 """,
         new="""\
-
     channel
-        .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
 """,
     ),
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-
     ch_versions = Channel.empty()
     ch_multiqc_files = Channel.empty()
-    //
 """,
         new="""\
-
     ch_versions = channel.empty()
     ch_multiqc_files = channel.empty()
-    //
 """,
     ),
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-    //
     softwareVersionsToYAML(ch_versions)
-        .collectFile(
 """,
-        new='    //\n    def topic_versions = Channel.topic("versions")\n        .distinct()\n        .branch { entry ->\n            versions_file: entry instanceof Path\n            versions_tuple: true\n        }\n\n    def topic_versions_string = topic_versions.versions_tuple\n        .map { process, tool, version ->\n            [ process[process.lastIndexOf(\':\')+1..-1], "  ${tool}: ${version}" ]\n        }\n        .groupTuple(by:0)\n        .map { process, tool_versions ->\n            tool_versions.unique().sort()\n            "${process}:\\n${tool_versions.join(\'\\n\')}"\n        }\n\n    softwareVersionsToYAML(ch_versions.mix(topic_versions.versions_file))\n        .mix(topic_versions_string)\n        .collectFile(\n',
+        new='    def topic_versions = Channel.topic("versions")\n        .distinct()\n        .branch { entry ->\n            versions_file: entry instanceof Path\n            versions_tuple: true\n        }\n\n    def topic_versions_string = topic_versions.versions_tuple\n        .map { process, tool, version ->\n            [ process[process.lastIndexOf(\':\')+1..-1], "  ${tool}: ${version}" ]\n        }\n        .groupTuple(by:0)\n        .map { process, tool_versions ->\n            tool_versions.unique().sort()\n            "${process}:\\n${tool_versions.join(\'\\n\')}"\n        }\n\n    softwareVersionsToYAML(ch_versions.mix(topic_versions.versions_file))\n        .mix(topic_versions_string)\n',
     ),
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-    //
     ch_multiqc_config        = Channel.fromPath(
-        "$projectDir/assets/multiqc_config.yml", checkIfExists: true)
 """,
         new="""\
-    //
     ch_multiqc_config        = channel.fromPath(
-        "$projectDir/assets/multiqc_config.yml", checkIfExists: true)
 """,
     ),
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-    ch_multiqc_custom_config = params.multiqc_config ?
         Channel.fromPath(params.multiqc_config, checkIfExists: true) :
         Channel.empty()
-    ch_multiqc_logo          = params.multiqc_logo ?
-        Channel.fromPath(params.multiqc_logo, checkIfExists: true) :
-        Channel.empty()
-
 """,
         new="""\
-    ch_multiqc_custom_config = params.multiqc_config ?
         channel.fromPath(params.multiqc_config, checkIfExists: true) :
         channel.empty()
-    ch_multiqc_logo          = params.multiqc_logo ?
+""",
+    ),
+    Replace(
+        'workflows/{{pipeline_name}}.nf',
+        old="""\
+        Channel.fromPath(params.multiqc_logo, checkIfExists: true) :
+        Channel.empty()
+""",
+        new="""\
         channel.fromPath(params.multiqc_logo, checkIfExists: true) :
         channel.empty()
-
 """,
     ),
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-        workflow, parameters_schema: "nextflow_schema.json")
     ch_workflow_summary = Channel.value(paramsSummaryMultiqc(summary_params))
-    ch_multiqc_files = ch_multiqc_files.mix(
 """,
         new="""\
-        workflow, parameters_schema: "nextflow_schema.json")
     ch_workflow_summary = channel.value(paramsSummaryMultiqc(summary_params))
-    ch_multiqc_files = ch_multiqc_files.mix(
 """,
     ),
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-        file("$projectDir/assets/methods_description_template.yml", checkIfExists: true)
     ch_methods_description                = Channel.value(
-        methodsDescriptionText(ch_multiqc_custom_methods_description))
 """,
         new="""\
-        file("$projectDir/assets/methods_description_template.yml", checkIfExists: true)
     ch_methods_description                = channel.value(
-        methodsDescriptionText(ch_multiqc_custom_methods_description))
 """,
     ),
     NfCoreComponent(

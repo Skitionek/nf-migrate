@@ -246,7 +246,15 @@ def _choose_unique_context(
         max_after = _equal_length(opcodes, hunk.last_opcode + 1)
 
         found_unique_context = False
-        for context in range(1, max(max_before, max_after, 1) + 1):
+        # A replacement whose changed lines are unique needs no context, so
+        # local edits to neighbouring lines cannot block it. Insertions and
+        # deletions keep one line: without it, already applied is
+        # indistinguishable from not applicable.
+        first_tag = opcodes[hunk.first_opcode][0]
+        last_tag = opcodes[hunk.last_opcode][0]
+        is_replacement = first_tag == last_tag == "replace"
+        first_context = 0 if is_replacement else 1
+        for context in range(first_context, max(max_before, max_after, 1) + 1):
             hunk.context_before = min(context, max_before)
             hunk.context_after = min(context, max_after)
             old_block, new_block = _hunk_blocks(

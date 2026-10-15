@@ -19,14 +19,11 @@ operations = [
     Replace(
         '.devcontainer/devcontainer.json',
         old="""\
-
     // Mount full current path to make mounting into docker-outside-of-docker work
     "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
     "workspaceFolder": "${localWorkspaceFolder}"
-}
 """,
         new="""\
-
     "remoteEnv": {
         // Workspace path on the host for mounting with docker-outside-of-docker
         "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
@@ -39,7 +36,6 @@ operations = [
         "memory": "16gb",
         "storage": "32gb"
     }
-}
 """,
     ),
     Replace(
@@ -65,29 +61,21 @@ operations = [
     Replace(
         'README.md',
         old="""\
-[![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-3.4.0-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/3.4.0)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
         new="""\
-[![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-3.4.1-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/3.4.1)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
     ),
     Replace(
         'nextflow.config',
         old="""\
-    pipelines_testdata_base_path = 'https://raw.githubusercontent.com/nf-core/test-datasets/'
     trace_report_suffix          = new java.util.Date().format( 'yyyy-MM-dd_HH-mm-ss')// Config options
-    config_profile_name        = null
 """,
         new="""\
-    pipelines_testdata_base_path = 'https://raw.githubusercontent.com/nf-core/test-datasets/'
     trace_report_suffix          = new java.util.Date().format( 'yyyy-MM-dd_HH-mm-ss')
 
     // Config options
-    config_profile_name        = null
 """,
     ),
     ManualStep(

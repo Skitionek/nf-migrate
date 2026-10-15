@@ -2,7 +2,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from nf_migrate.autogenerate import generate_migration
+from nf_migrate.autogenerate import diff_hunks, generate_migration
 from nf_migrate.migrations import load_migrations
 from nf_migrate.runner import upgrade
 
@@ -229,3 +229,28 @@ def test_migration_generated_from_one_pipeline_applies_to_another(
     assert (pipeline / "workflows/rnaseq.nf").read_text() == (
         "workflow RNASEQ {\n    main:\n}\n"
     )
+
+
+# Context around template changes
+def test_unique_replacement_needs_no_context() -> None:
+    # Given a one-line change whose new text is unique in both versions
+    old_text = "header\nbadge 4.0.2\nfooter\n"
+    new_text = "header\nbadge 4.0.3\nfooter\n"
+
+    # When
+    hunks = diff_hunks(old_text, new_text)
+
+    # Then
+    assert hunks == [("badge 4.0.2\n", "badge 4.0.3\n")]
+
+
+def test_insertion_keeps_context_to_detect_reapplication() -> None:
+    # Given
+    old_text = "first\nlast\n"
+    new_text = "first\nadded\nlast\n"
+
+    # When
+    hunks = diff_hunks(old_text, new_text)
+
+    # Then
+    assert hunks == [("first\nlast\n", "first\nadded\nlast\n")]

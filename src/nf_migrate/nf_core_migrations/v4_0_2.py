@@ -36,29 +36,30 @@ operations = [
       - name: Read .nf-core.yml
         uses: pietrobolcato/action-read-yaml@9f13718d61111b69f30ab4ac683e67a56d254e1d # 1.1.0
         id: read_yml
-        with:
-          config: ${{ github.workspace }}/.nf-core.yml
-
 """,
         new="""\
       - name: Read .nf-core.yml
         id: read_yml
+""",
+    ),
+    Replace(
+        '.github/workflows/download_pipeline.yml',
+        old="""\
+        with:
+          config: ${{ github.workspace }}/.nf-core.yml
+""",
+        new="""\
         run: |
           echo "nf_core_version=$(yq '.nf_core_version' ${{ github.workspace }}/.nf-core.yml)" >> "$GITHUB_OUTPUT"
-
 """,
     ),
     Replace(
         'README.md',
         old="""\
-[![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.10.4-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-4.0.1-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/4.0.1)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
         new="""\
-[![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.10.4-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-4.0.2-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/4.0.2)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
     ),
     Replace(

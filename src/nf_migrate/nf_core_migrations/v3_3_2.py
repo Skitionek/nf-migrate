@@ -45,27 +45,19 @@ operations = [
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-
       - name: Set up Python 3.12
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
 """,
         new="""\
-
       - name: Set up Python 3.13
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
 """,
     ),
     Replace(
         '.github/workflows/linting_comment.yml',
         old="""\
-      - name: Download lint results
         uses: dawidd6/action-download-artifact@4c1e823582f43b179e2cbb49c3eade4e41f992e2 # v10
-        with:
 """,
         new="""\
-      - name: Download lint results
         uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
-        with:
 """,
     ),
     Replace(
@@ -89,40 +81,28 @@ on:
     Replace(
         '.github/workflows/nf-test.yml',
         old="""\
-    runs-on: # use self-hosted runners
       - runs-on=$-nf-test-changes
-      - runner=4cpu-linux-x64
 """,
         new="""\
-    runs-on: # use self-hosted runners
       - runs-on=${{ github.run_id }}-nf-test-changes
-      - runner=4cpu-linux-x64
 """,
     ),
     Replace(
         '.github/workflows/nf-test.yml',
         old="""\
-    runs-on: # use self-hosted runners
       - runs-on=$-nf-test
-      - runner=4cpu-linux-x64
 """,
         new="""\
-    runs-on: # use self-hosted runners
       - runs-on=${{ github.run_id }}-nf-test
-      - runner=4cpu-linux-x64
 """,
     ),
     Replace(
         '.github/workflows/nf-test.yml',
         old="""\
-        NXF_VER:
           - "24.04.2"
-          - "latest-everything"
 """,
         new="""\
-        NXF_VER:
           - "24.10.5"
-          - "latest-everything"
 """,
     ),
     Replace(
@@ -174,27 +154,19 @@ on:
     Replace(
         '.github/workflows/nf-test.yml',
         old="""\
-    runs-on: # use self-hosted runners
       - runs-on=$-confirm-pass
-      - runner=2cpu-linux-x64
 """,
         new="""\
-    runs-on: # use self-hosted runners
       - runs-on=${{ github.run_id }}-confirm-pass
-      - runner=2cpu-linux-x64
 """,
     ),
     Replace(
         '.github/workflows/nf-test.yml',
         old="""\
-    steps:
       - name: One or more tests failed
-        if: ${{ contains(needs.*.result, 'failure') }}
 """,
         new="""\
-    steps:
       - name: One or more tests failed (excluding latest-everything)
-        if: ${{ contains(needs.*.result, 'failure') }}
 """,
     ),
     Replace(
@@ -217,55 +189,39 @@ on:
     Replace(
         '.github/workflows/release-announcements.yml',
         old="""\
-    steps:
       - uses: zentered/bluesky-post-action@4aa83560bb3eac05dbad1e5f221ee339118abdd2 # v0.2.0
-        with:
 """,
         new="""\
-    steps:
       - uses: zentered/bluesky-post-action@6461056ea355ea43b977e149f7bf76aaa572e5e8 # v0.3.0
-        with:
 """,
     ),
     Replace(
         '.pre-commit-config.yaml',
         old="""\
-        additional_dependencies:
           - prettier@3.5.0
-  - repo: https://github.com/pre-commit/pre-commit-hooks
 """,
         new="""\
-        additional_dependencies:
           - prettier@3.6.2
-  - repo: https://github.com/pre-commit/pre-commit-hooks
 """,
     ),
     Replace(
         'README.md',
         old="""\
-
 [![GitHub Actions CI Status](https://github.com/nf-core/{{pipeline_name}}/actions/workflows/ci.yml/badge.svg)](https://github.com/nf-core/{{pipeline_name}}/actions/workflows/ci.yml)
-[![GitHub Actions Linting Status](https://github.com/nf-core/{{pipeline_name}}/actions/workflows/linting.yml/badge.svg)](https://github.com/nf-core/{{pipeline_name}}/actions/workflows/linting.yml)[![AWS CI](https://img.shields.io/badge/CI%20tests-full%20size-FF9900?labelColor=000000&logo=Amazon%20AWS)](https://nf-co.re/{{pipeline_name}}/results)[![Cite with Zenodo](http://img.shields.io/badge/DOI-10.5281/zenodo.XXXXXXX-1073c8?labelColor=000000)](https://doi.org/10.5281/zenodo.XXXXXXX)
 """,
         new="""\
-
 [![GitHub Actions CI Status](https://github.com/nf-core/{{pipeline_name}}/actions/workflows/nf-test.yml/badge.svg)](https://github.com/nf-core/{{pipeline_name}}/actions/workflows/nf-test.yml)
-[![GitHub Actions Linting Status](https://github.com/nf-core/{{pipeline_name}}/actions/workflows/linting.yml/badge.svg)](https://github.com/nf-core/{{pipeline_name}}/actions/workflows/linting.yml)[![AWS CI](https://img.shields.io/badge/CI%20tests-full%20size-FF9900?labelColor=000000&logo=Amazon%20AWS)](https://nf-co.re/{{pipeline_name}}/results)[![Cite with Zenodo](http://img.shields.io/badge/DOI-10.5281/zenodo.XXXXXXX-1073c8?labelColor=000000)](https://doi.org/10.5281/zenodo.XXXXXXX)
 """,
     ),
     Replace(
         'README.md',
         old="""\
-
 [![Nextflow](https://img.shields.io/badge/version-%E2%89%A524.04.2-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-3.3.1-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/3.3.1)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
         new="""\
-
 [![Nextflow](https://img.shields.io/badge/version-%E2%89%A524.10.5-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-3.3.2-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/3.3.2)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
     ),
     Replace(
@@ -301,40 +257,28 @@ on:
     Replace(
         'nextflow.config',
         old="""\
-    defaultBranch   = 'master'
     nextflowVersion = '!>=24.04.2'
-    version         = '{{pipeline_version}}'
 """,
         new="""\
-    defaultBranch   = 'master'
     nextflowVersion = '!>=24.10.5'
-    version         = '{{pipeline_version}}'
 """,
     ),
     Replace(
         'nextflow.config',
         old="""\
-plugins {
     id 'nf-schema@2.3.0' // Validation of pipeline parameters and creation of an input channel from a sample sheet
-}
 """,
         new="""\
-plugins {
     id 'nf-schema@2.4.2' // Validation of pipeline parameters and creation of an input channel from a sample sheet
-}
 """,
     ),
     Replace(
         'nf-test.config',
         old="""\
-    // ignore tests coming from the nf-core/modules repo
     ignore 'modules/nf-core/**/*', 'subworkflows/nf-core/**/*'
-
 """,
         new="""\
-    // ignore tests coming from the nf-core/modules repo
     ignore 'modules/nf-core/**/tests/*', 'subworkflows/nf-core/**/tests/*'
-
 """,
     ),
     Replace(
@@ -352,18 +296,14 @@ multiqc/multiqc_data/multiqc.log
     Replace(
         'tests/nextflow.config',
         old="""\
-// Or any resources requirements
 params.modules_testdata_base_path = 'https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/'
 params.pipelines_testdata_base_path = 'https://raw.githubusercontent.com/nf-core/test-datasets/refs/heads/{{pipeline_name}}'
-
 """,
         new="""\
-// Or any resources requirements
 params {
     modules_testdata_base_path = 'https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/'
     pipelines_testdata_base_path = 'https://raw.githubusercontent.com/nf-core/test-datasets/refs/heads/{{pipeline_name}}'
 }
-
 """,
     ),
     NfCoreComponent(

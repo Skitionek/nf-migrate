@@ -161,118 +161,82 @@ Devcontainer specs:
     Replace(
         '.github/PULL_REQUEST_TEMPLATE.md',
         old="""\
-
 Learn more about contributing: [CONTRIBUTING.md](https://github.com/nf-core/{{pipeline_name}}/tree/master/.github/CONTRIBUTING.md)
--->
 """,
         new="""\
-
 Learn more about contributing: [CONTRIBUTING.md](https://github.com/nf-core/{{pipeline_name}}/tree/master/docs/CONTRIBUTING.md)
--->
 """,
     ),
     Replace(
         '.github/PULL_REQUEST_TEMPLATE.md',
         old="""\
-- [ ] If you've fixed a bug or added code that should be tested, add tests!
 - [ ] If you've added a new tool - have you followed the pipeline conventions in the [contribution docs](https://github.com/nf-core/{{pipeline_name}}/tree/master/.github/CONTRIBUTING.md)
-- [ ] If necessary, also make a PR on the nf-core/{{pipeline_name}} _branch_ on the [nf-core/test-datasets](https://github.com/nf-core/test-datasets) repository.
 """,
         new="""\
-- [ ] If you've fixed a bug or added code that should be tested, add tests!
 - [ ] If you've added a new tool - have you followed the pipeline conventions in the [contribution docs](https://github.com/nf-core/{{pipeline_name}}/tree/master/docs/CONTRIBUTING.md)
-- [ ] If necessary, also make a PR on the nf-core/{{pipeline_name}} _branch_ on the [nf-core/test-datasets](https://github.com/nf-core/test-datasets) repository.
 """,
     ),
     Replace(
         '.github/actions/get-shards/action.yml',
         old="""\
-    - name: Install nf-test
       uses: nf-core/setup-nf-test@v1
-      with:
 """,
         new="""\
-    - name: Install nf-test
       uses: nf-core/setup-nf-test@4069fbbaabe94c08faba4ad261bfa88225ba133f # v2
-      with:
 """,
     ),
     Replace(
         '.github/actions/nf-test/action.yml',
         old="""\
-    - name: Setup Nextflow
       uses: nf-core/setup-nextflow@v2
-      with:
 """,
         new="""\
-    - name: Setup Nextflow
       uses: nf-core/setup-nextflow@b4ec1bc7c16a94435159de94a05253542fddf6ef # v3
-      with:
 """,
     ),
     Replace(
         '.github/actions/nf-test/action.yml',
         old="""\
-    - name: Set up Python
       uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
-      with:
 """,
         new="""\
-    - name: Set up Python
       uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-      with:
 """,
     ),
     Replace(
         '.github/actions/nf-test/action.yml',
         old="""\
-    - name: Install nf-test
       uses: nf-core/setup-nf-test@v1
-      with:
 """,
         new="""\
-    - name: Install nf-test
       uses: nf-core/setup-nf-test@4069fbbaabe94c08faba4ad261bfa88225ba133f # v2
-      with:
 """,
     ),
     Replace(
         '.github/actions/nf-test/action.yml',
         old="""\
-      if: contains(inputs.profile, 'singularity')
       uses: eWaterCycle/setup-apptainer@main
-
 """,
         new="""\
-      if: contains(inputs.profile, 'singularity')
       uses: eWaterCycle/setup-apptainer@3f706d898c9db585b1d741b4692e66755f3a1b40 # v2
-
 """,
     ),
     Replace(
         '.github/actions/nf-test/action.yml',
         old="""\
-      if: contains(inputs.profile, 'conda')
       uses: conda-incubator/setup-miniconda@505e6394dae86d6a5c7fbb6e3fb8938e3e863830 # v3
-      with:
 """,
         new="""\
-      if: contains(inputs.profile, 'conda')
       uses: conda-incubator/setup-miniconda@8ee1f361103df19b6f8c8655fd3967a8ecb162d5 # v4
-      with:
 """,
     ),
     Replace(
         '.github/workflows/awsfulltest.yml',
         old="""\
-      - name: Launch workflow via Seqera Platform
         uses: seqeralabs/action-tower-launch@v2
-        # TODO nf-core: You can customise AWS full pipeline tests as required
 """,
         new="""\
-      - name: Launch workflow via Seqera Platform
         uses: seqeralabs/action-tower-launch@51565b514bff1827cf34620de25d0055759f1fc9 # v2
-        # TODO nf-core: You can customise AWS full pipeline tests as required
 """,
     ),
     Replace(
@@ -321,92 +285,64 @@ Learn more about contributing: [CONTRIBUTING.md](https://github.com/nf-core/{{pi
     Replace(
         '.github/workflows/awsfulltest.yml',
         old="""\
-
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
-        with:
 """,
         new="""\
-
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
 """,
     ),
     Replace(
         '.github/workflows/awstest.yml',
         old="""\
-      - name: Launch workflow via Seqera Platform
         uses: seqeralabs/action-tower-launch@v2
-        with:
 """,
         new="""\
-      - name: Launch workflow via Seqera Platform
         uses: seqeralabs/action-tower-launch@51565b514bff1827cf34620de25d0055759f1fc9 # v2
-        with:
 """,
     ),
     Replace(
         '.github/workflows/awstest.yml',
         old="""\
-
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
-        with:
 """,
         new="""\
-
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
 """,
     ),
     Replace(
         '.github/workflows/branch.yml',
         old="""\
-        if: failure()
         uses: mshick/add-pr-comment@b8f338c590a895d50bcbfa6c5859251edc8952fc # v2
-        with:
 """,
         new="""\
-        if: failure()
         uses: mshick/add-pr-comment@8e4927817251f1ff60c001f04568532b38e0b4a0 # v3
-        with:
 """,
     ),
     Replace(
         '.github/workflows/clean-up.yml',
         old="""\
-    steps:
       - uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008 # v10
-        with:
 """,
         new="""\
-    steps:
       - uses: actions/stale@b5d41d4e1d5dceea10e7104786b73624c18a190f # v10
-        with:
 """,
     ),
     Replace(
         '.github/workflows/download_pipeline.yml',
         old="""\
-      - name: Install Nextflow
         uses: nf-core/setup-nextflow@v2
-
 """,
         new="""\
-      - name: Install Nextflow
         uses: nf-core/setup-nextflow@b4ec1bc7c16a94435159de94a05253542fddf6ef # v3
-
 """,
     ),
     Replace(
         '.github/workflows/download_pipeline.yml',
         old="""\
-
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
-        with:
 """,
         new="""\
-
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
 """,
     ),
     Replace(
@@ -429,103 +365,90 @@ Learn more about contributing: [CONTRIBUTING.md](https://github.com/nf-core/{{pi
     Replace(
         '.github/workflows/download_pipeline.yml',
         old="""\
-          python -m pip install --upgrade pip
           pip install git+https://github.com/nf-core/tools.git
-
 """,
         new="""\
-          python -m pip install --upgrade pip
           pip install nf-core==${{ steps.read_yml.outputs['nf_core_version'] }}
-
 """,
     ),
     Replace(
         '.github/workflows/download_pipeline.yml',
         old="""\
-      - name: Upload Nextflow logfile for debugging purposes
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
-        with:
 """,
         new="""\
-      - name: Upload Nextflow logfile for debugging purposes
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
 """,
     ),
     Replace(
         '.github/workflows/fix_linting.yml',
         old="""\
-      # Use the @nf-core-bot token to check out so we can push later
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-        with:
 """,
         new="""\
-      # Use the @nf-core-bot token to check out so we can push later
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
 """,
     ),
     Replace(
         '.github/workflows/fix_linting.yml',
         old="""\
-
       # Install and run pre-commit
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: "3.14"
-
+""",
+        new="""\
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@b4ec1bc7c16a94435159de94a05253542fddf6ef # v3
+""",
+    ),
+    Replace(
+        '.github/workflows/fix_linting.yml',
+        old="""\
       - name: Install pre-commit
         run: pip install pre-commit
 
       - name: Run pre-commit
         id: pre-commit
         run: pre-commit run --all-files
-        continue-on-error: true
 """,
         new="""\
-
-      - name: Install Nextflow
-        uses: nf-core/setup-nextflow@b4ec1bc7c16a94435159de94a05253542fddf6ef # v3
-
       # Install and run prek
       - name: Run prek
         id: prek
         uses: j178/prek-action@cbc2f23eb5539cf20d82d1aabd0d0ecbcc56f4e3 # v2
-        continue-on-error: true
 """,
     ),
     Replace(
         '.github/workflows/fix_linting.yml',
         old="""\
-      - name: react if linting finished succesfully
         if: steps.pre-commit.outcome == 'success'
-        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5
 """,
         new="""\
-      - name: react if linting finished succesfully
         if: steps.prek.outcome == 'success'
-        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5
 """,
     ),
     Replace(
         '.github/workflows/fix_linting.yml',
         old="""\
-        id: commit-and-push
         if: steps.pre-commit.outcome == 'failure'
-        run: |
 """,
         new="""\
-        id: commit-and-push
         if: steps.prek.outcome == 'failure'
-        run: |
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-    steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-
+""",
+        new="""\
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+""",
+    ),
+    Replace(
+        '.github/workflows/linting.yml',
+        old="""\
       - name: Set up Python 3.14
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
@@ -536,48 +459,35 @@ Learn more about contributing: [CONTRIBUTING.md](https://github.com/nf-core/{{pi
 
       - name: Run pre-commit
         run: pre-commit run --all-files
-
 """,
         new="""\
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
       - name: Install Nextflow
         uses: nf-core/setup-nextflow@b4ec1bc7c16a94435159de94a05253542fddf6ef # v3
 
       - name: Run prek
         uses: j178/prek-action@cbc2f23eb5539cf20d82d1aabd0d0ecbcc56f4e3 # v2
-
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-      - name: Check out pipeline code
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-
 """,
         new="""\
-      - name: Check out pipeline code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-      - name: Install Nextflow
         uses: nf-core/setup-nextflow@v2
 
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
-        with:
 """,
         new="""\
-      - name: Install Nextflow
         uses: nf-core/setup-nextflow@b4ec1bc7c16a94435159de94a05253542fddf6ef # v3
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
 """,
     ),
     Replace(
@@ -597,94 +507,66 @@ Learn more about contributing: [CONTRIBUTING.md](https://github.com/nf-core/{{pi
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install nf-core==${{ steps.read_yml.outputs['nf_core_version'] }}
-
 """,
         new="""\
-      - name: Install dependencies
         run: uv tool install nf-core==${{ steps.read_yml.outputs['nf_core_version'] }}
-
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-      - name: Run nf-core pipelines lint
         if: ${{ github.base_ref != 'master' }}
-        env:
 """,
         new="""\
-      - name: Run nf-core pipelines lint
         if: ${{ github.base_ref != 'master' || github.base_ref != 'main' }}
-        env:
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-      - name: Run nf-core pipelines lint --release
         if: ${{ github.base_ref == 'master' }}
-        env:
 """,
         new="""\
-      - name: Run nf-core pipelines lint --release
         if: ${{ github.base_ref == 'master' || github.base_ref == 'main' }}
-        env:
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-        if: ${{ always() }}
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
-        with:
 """,
         new="""\
-        if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
 """,
     ),
     Replace(
         '.github/workflows/linting_comment.yml',
         old="""\
-      - name: Download lint results
         uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
-        with:
 """,
         new="""\
-      - name: Download lint results
         uses: dawidd6/action-download-artifact@8305c0f1062bb0d184d09ef4493ecb9288447732 # v20
-        with:
 """,
     ),
     Replace(
         '.github/workflows/linting_comment.yml',
         old="""\
-      - name: Post PR comment
         uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2
-        with:
 """,
         new="""\
-      - name: Post PR comment
         uses: marocchino/sticky-pull-request-comment@70d2764d1a7d5d9560b100cbea0077fc8f633987 # v3
-        with:
 """,
     ),
     Replace(
         '.github/workflows/nf-test.yml',
         old="""\
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   NFT_VER: "0.9.3"
-  NFT_WORKDIR: "~"
 """,
         new="""\
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   NFT_VER: "0.9.4"
-  NFT_WORKDIR: "~"
 """,
     ),
     Replace(
@@ -703,14 +585,10 @@ Learn more about contributing: [CONTRIBUTING.md](https://github.com/nf-core/{{pi
     Replace(
         '.github/workflows/nf-test.yml',
         old="""\
-        NXF_VER:
           - "25.04.0"
-          - "latest-everything"
 """,
         new="""\
-        NXF_VER:
           - "25.10.4"
-          - "latest-everything"
 """,
     ),
     Replace(
@@ -729,66 +607,46 @@ Learn more about contributing: [CONTRIBUTING.md](https://github.com/nf-core/{{pi
     Replace(
         '.github/workflows/release-announcements.yml',
         old="""\
-          echo "description=$(curl -s https://nf-co.re/pipelines.json | jq -r '.remote_workflows[] | select(.full_name == "${{ github.repository }}") | .description')" >> $GITHUB_OUTPUT
       - uses: rzr/fediverse-action@master
-        with:
 """,
         new="""\
-          echo "description=$(curl -s https://nf-co.re/pipelines.json | jq -r '.remote_workflows[] | select(.full_name == "${{ github.repository }}") | .description')" >> $GITHUB_OUTPUT
       - uses: rzr/fediverse-action@563159eb8d45f70ab6aaba36ed55cd037e51f441 # master
-        with:
 """,
     ),
     Replace(
         '.github/workflows/release-announcements.yml',
         old="""\
-    steps:
       - uses: zentered/bluesky-post-action@6461056ea355ea43b977e149f7bf76aaa572e5e8 # v0.3.0
-        with:
 """,
         new="""\
-    steps:
       - uses: zentered/bluesky-post-action@5a91cc2ad10a304a4e96c16182dbe4918710bcf6 # v0.4.0
-        with:
 """,
     ),
     Replace(
         '.github/workflows/template-version-comment.yml',
         old="""\
-      - name: Check out pipeline code
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-        with:
 """,
         new="""\
-      - name: Check out pipeline code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
 """,
     ),
     Replace(
         '.github/workflows/template-version-comment.yml',
         old="""\
-      - name: Post nf-core template version comment
         uses: mshick/add-pr-comment@b8f338c590a895d50bcbfa6c5859251edc8952fc # v2
-        if: |
 """,
         new="""\
-      - name: Post nf-core template version comment
         uses: mshick/add-pr-comment@8e4927817251f1ff60c001f04568532b38e0b4a0 # v3
-        if: |
 """,
     ),
     Replace(
         '.github/workflows/template-version-comment.yml',
         old="""\
-            >
             > For more documentation on how to update your pipeline, please see the [nf-core documentation](https://github.com/nf-core/tools?tab=readme-ov-file#sync-a-pipeline-with-the-template) and [Synchronisation documentation](https://nf-co.re/docs/contributing/sync).
-          #
 """,
         new="""\
-            >
             > For more documentation on how to update your pipeline, please see the [Synchronisation documentation](https://nf-co.re/docs/developing/template-syncs/overview).
-          #
 """,
     ),
     Replace(
@@ -804,14 +662,10 @@ null/
     Replace(
         '.pre-commit-config.yaml',
         old="""\
-        additional_dependencies:
           - prettier@3.6.2
-  - repo: https://github.com/pre-commit/pre-commit-hooks
 """,
         new="""\
-        additional_dependencies:
           - prettier@3.8.3
-  - repo: https://github.com/pre-commit/pre-commit-hooks
 """,
     ),
     Replace(
@@ -835,68 +689,48 @@ email_template.html
     Replace(
         'README.md',
         old="""\
-
 [![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-3.5.2-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/3.5.2)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
         new="""\
-
 [![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.10.4-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-4.0.0-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/4.0.0)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
     ),
     Replace(
         'README.md',
         old="""\
-<!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
      workflows use the "tube map" design for that. See https://nf-co.re/docs/guidelines/graphic_design/workflow_diagrams#examples for examples.   -->
-<!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->1. Read QC ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))2. Present QC for raw reads ([`MultiQC`](http://multiqc.info/))
 """,
         new="""\
-<!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
      workflows use the "tube map" design for that. See https://nf-co.re/docs/community/brand/workflow-schematics#examples for examples.   -->
-<!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->1. Read QC ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))2. Present QC for raw reads ([`MultiQC`](http://multiqc.info/))
 """,
     ),
     Replace(
         'README.md',
         old="""\
-> [!NOTE]
 > If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/usage/introduction#how-to-run-a-pipeline) with `-profile test` before running the workflow on actual data.
-
 """,
         new="""\
-> [!NOTE]
 > If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/get_started/environment_setup/overview) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/get_started/run-your-first-pipeline) with `-profile test` before running the workflow on actual data.
-
 """,
     ),
     Replace(
         'README.md',
         old="""\
-> [!WARNING]
 > Please provide pipeline parameters via the CLI or Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration _**except for parameters**_; see [docs](https://nf-co.re/docs/usage/getting_started/configuration#custom-configuration-files).
-
 """,
         new="""\
-> [!WARNING]
 > Please provide pipeline parameters via the CLI or Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration _**except for parameters**_; see [docs](https://nf-co.re/docs/running/run-pipelines#using-parameter-files).
-
 """,
     ),
     Replace(
         'README.md',
         old="""\
-
 If you would like to contribute to this pipeline, please see the [contributing guidelines](.github/CONTRIBUTING.md).
-
 """,
         new="""\
-
 If you would like to contribute to this pipeline, please see the [contributing guidelines](docs/CONTRIBUTING.md).
-
 """,
     ),
     DeleteFile(
@@ -910,14 +744,10 @@ If you would like to contribute to this pipeline, please see the [contributing g
     Replace(
         'conf/base.config',
         old="""\
-
     errorStrategy = { task.exitStatus in ((130..145) + 104 + 175) ? 'retry' : 'finish' }
-    maxRetries    = 1
 """,
         new="""\
-
     errorStrategy = { task.exitStatus in ((130..145) + 104 + (175..177)) ? 'retry' : 'finish' }
-    maxRetries    = 1
 """,
     ),
     CreateFile(
@@ -927,70 +757,50 @@ If you would like to contribute to this pipeline, please see the [contributing g
     Replace(
         'docs/usage.md',
         old="""\
-> [!WARNING]
 > Do not use `-c <file>` to specify parameters as this will result in errors. Custom config files specified with `-c` must only be used for [tuning process resource specifications](https://nf-co.re/docs/usage/configuration#tuning-workflow-resources), other infrastructural tweaks (such as output directories), or module arguments (args).
-
 """,
         new="""\
-> [!WARNING]
 > Do not use `-c <file>` to specify parameters as this will result in errors. Custom config files specified with `-c` must only be used for [tuning process resource specifications](https://nf-co.re/docs/running/run-pipelines#configuring-pipelines), other infrastructural tweaks (such as output directories), or module arguments (args).
-
 """,
     ),
     Replace(
         'docs/usage.md',
         old="""\
-
 To change the resource requests, please see the [max resources](https://nf-co.re/docs/usage/configuration#max-resources) and [tuning workflow resources](https://nf-co.re/docs/usage/configuration#tuning-workflow-resources) section of the nf-core website.
-
 """,
         new="""\
-
 To change the resource requests, please see the [max resources](https://nf-co.re/docs/running/configuration/nextflow-for-your-system#set-max-resources) and [customise process resources](https://nf-co.re/docs/running/configuration/nextflow-for-your-system#customize-process-resources) section of the nf-core website.
-
 """,
     ),
     Replace(
         'docs/usage.md',
         old="""\
-
 To use a different container from the default container or conda environment specified in a pipeline, please see the [updating tool versions](https://nf-co.re/docs/usage/configuration#updating-tool-versions) section of the nf-core website.
-
 """,
         new="""\
-
 To use a different container from the default container or conda environment specified in a pipeline, please see the [updating tool versions](https://nf-co.re/docs/running/configuration/nextflow-for-your-system#update-tool-versions) section of the nf-core website.
-
 """,
     ),
     Replace(
         'docs/usage.md',
         old="""\
-
 To learn how to provide additional arguments to a particular tool of the pipeline, please see the [customising tool arguments](https://nf-co.re/docs/usage/configuration#customising-tool-arguments) section of the nf-core website.
-
 """,
         new="""\
-
 To learn how to provide additional arguments to a particular tool of the pipeline, please see the [customising tool arguments](https://nf-co.re/docs/running/configuration/nextflow-for-your-system#modifying-tool-arguments) section of the nf-core website.
-
 """,
     ),
     Replace(
         'main.nf',
         old="""\
-    {{PIPELINE_NAME}} (
         samplesheet
-    )
 """,
         new="""\
-    {{PIPELINE_NAME}} (
         samplesheet,
         params.multiqc_config,
         params.multiqc_logo,
         params.multiqc_methods_description,
         params.outdir,
-    )
 """,
     ),
     Replace(
@@ -1039,14 +849,10 @@ workflow.output.mode = params.publish_dir_mode
     Replace(
         'nextflow.config',
         old="""\
-    defaultBranch   = 'master'
     nextflowVersion = '!>=25.04.0'
-    version         = '{{pipeline_version}}'
 """,
         new="""\
-    defaultBranch   = 'master'
     nextflowVersion = '!>=25.10.4'
-    version         = '{{pipeline_version}}'
 """,
     ),
     Replace(
@@ -1082,80 +888,57 @@ workflow.output.mode = params.publish_dir_mode
     Replace(
         'nf-test.config',
         old="""\
-    // location for all nf-test tests
     testsDir "."
-
 """,
         new="""\
-    // location for all nf-test tests
     testsDir = "."
-
 """,
     ),
     Replace(
         'nf-test.config',
         old="""\
-    // nf-test directory including temporary files for each test
     workDir System.getenv("NFT_WORKDIR") ?: ".nf-test"
-
 """,
         new="""\
-    // nf-test directory including temporary files for each test
     workDir = System.getenv("NFT_WORKDIR") ?: ".nf-test"
-
 """,
     ),
     Replace(
         'nf-test.config',
         old="""\
-    // location of an optional nextflow.config file specific for executing tests
     configFile "tests/nextflow.config"
-
 """,
         new="""\
-    // location of an optional nextflow.config file specific for executing tests
     configFile = "tests/nextflow.config"
-
 """,
     ),
     Replace(
         'nf-test.config',
         old="""\
-    // ignore tests coming from the nf-core/modules repo
     ignore 'modules/nf-core/**/tests/*', 'subworkflows/nf-core/**/tests/*'
-
 """,
         new="""\
-    // ignore tests coming from the nf-core/modules repo
     ignore = [
         'modules/nf-core/**/tests/*',
         'subworkflows/nf-core/**/tests/*',
     ]
-
 """,
     ),
     Replace(
         'nf-test.config',
         old="""\
-    // run all test with defined profile(s) from the main nextflow.config
     profile "test"
-
 """,
         new="""\
-    // run all test with defined profile(s) from the main nextflow.config
     profile = "test"
-
 """,
     ),
     Replace(
         'nf-test.config',
         old="""\
-    // list of filenames or patterns that should be trigger a full test run
     triggers 'nextflow.config', 'nf-test.config', 'conf/test.config', 'tests/nextflow.config', 'tests/.nftignore'
-
 """,
         new="""\
-    // list of filenames or patterns that should be trigger a full test run
     triggers = [
         '.github/actions/nf-test/action.yml',
         '.github/workflows/nf-test.yml',
@@ -1168,7 +951,6 @@ workflow.output.mode = params.publish_dir_mode
         'tests/.nftignore',
         'tests/nextflow.config',
     ]
-
 """,
     ),
     Replace(
@@ -1196,14 +978,10 @@ include { UTILS_NFCORE_PIPELINE     } from '../../nf-core/utils_nfcore_pipeline'
     Replace(
         'subworkflows/local/utils_nfcore_{{pipeline_name}}_pipeline/main.nf',
         old="""\
-    channel
         .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
-        .map {
 """,
         new="""\
-    channel
         .fromList(samplesheetToList(input, "${projectDir}/assets/schema_input.json"))
-        .map {
 """,
     ),
     Replace(
@@ -1236,35 +1014,36 @@ include { UTILS_NFCORE_PIPELINE     } from '../../nf-core/utils_nfcore_pipeline'
     Replace(
         'subworkflows/local/utils_nfcore_{{pipeline_name}}_pipeline/main.nf',
         old="""\
-    workflow.onError {
         log.error "Pipeline failed. Please refer to troubleshooting docs: https://nf-co.re/docs/usage/troubleshooting"
-    }
 """,
         new="""\
-    workflow.onError {
         log.error "Pipeline failed. Please refer to troubleshooting docs for common issues: https://nf-co.re/docs/running/troubleshooting"
-    }
 """,
     ),
     Replace(
         'tests/default.nf.test',
         old="""\
-        then {
             // stable_name: All files + folders in ${params.outdir}/ with a stable name
             def stable_name = getAllFilesFromDir(params.outdir, relative: true, includeDir: true, ignore: ['pipeline_info/*.{html,json,txt}'])
             // stable_path: All files in ${params.outdir}/ with stable content
             def stable_path = getAllFilesFromDir(params.outdir, ignoreFile: 'tests/.nftignore')
-            assertAll(
-                { assert workflow.success},
-                { assert snapshot(
 """,
         new="""\
-        then {
             // stable_path: All files + folders in ${params.outdir}/ with a stable path (including file name)
             def stable_path = getAllFilesFromDir(params.outdir, relative: true, includeDir: true, ignore: ['pipeline_info/*.{html,json,txt}'])
             // stable_content: All files in ${params.outdir}/ with stable content
             def stable_content = getAllFilesFromDir(params.outdir, ignoreFile: 'tests/.nftignore')
             assert workflow.success
+""",
+    ),
+    Replace(
+        'tests/default.nf.test',
+        old="""\
+            assertAll(
+                { assert workflow.success},
+                { assert snapshot(
+""",
+        new="""\
             assertAll(
                 { assert snapshot(
 """,
@@ -1272,31 +1051,28 @@ include { UTILS_NFCORE_PIPELINE     } from '../../nf-core/utils_nfcore_pipeline'
     Replace(
         'tests/default.nf.test',
         old="""\
-                    // All stable path name, with a relative path
                     stable_name,
-                    // All files with stable contents
-                    stable_path
-                ).match() }
 """,
         new="""\
-                    // All stable path name, with a relative path
                     stable_path,
-                    // All files with stable contents
+""",
+    ),
+    Replace(
+        'tests/default.nf.test',
+        old="""\
+                    stable_path
+""",
+        new="""\
                     stable_content
-                ).match() }
 """,
     ),
     Replace(
         'tests/nextflow.config',
         old="""\
-    modules_testdata_base_path = 'https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/'
     pipelines_testdata_base_path = 'https://raw.githubusercontent.com/nf-core/test-datasets/refs/heads/{{pipeline_name}}'
-}
 """,
         new="""\
-    modules_testdata_base_path = 'https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/'
     pipelines_testdata_base_path = 'https://raw.githubusercontent.com/nf-core/test-datasets/refs/heads/{{pipeline_name}}/'
-}
 """,
     ),
     Replace(
@@ -1318,87 +1094,63 @@ include { UTILS_NFCORE_PIPELINE     } from '../../nf-core/utils_nfcore_pipeline'
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-
     ch_versions = channel.empty()
     ch_multiqc_files = channel.empty()
-    //
 """,
         new="""\
-
     def ch_versions = channel.empty()
     def ch_multiqc_files = channel.empty()
-    //
 """,
     ),
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-    //
     FASTQC (
         ch_samplesheet
     )
     ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
     ch_versions = ch_versions.mix(FASTQC.out.versions.first())
-
 """,
         new="""\
-    //
     FASTQC(ch_samplesheet)
     ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.map{ _meta, file -> file })
-
 """,
     ),
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-    //
     def topic_versions = Channel.topic("versions")
-        .distinct()
 """,
         new="""\
-    //
     def topic_versions = channel.topic("versions")
-        .distinct()
 """,
     ),
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-
     softwareVersionsToYAML(ch_versions.mix(topic_versions.versions_file))
-        .mix(topic_versions_string)
 """,
         new="""\
-
     def ch_collated_versions = softwareVersionsToYAML(ch_versions.mix(topic_versions.versions_file))
-        .mix(topic_versions_string)
 """,
     ),
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-        .collectFile(
             storeDir: "${params.outdir}/pipeline_info",
-            name: 'nf_core_'  +  '{{pipeline_name}}_software_'  + 'mqc_'  + 'versions.yml',
 """,
         new="""\
-        .collectFile(
             storeDir: "${outdir}/pipeline_info",
-            name: 'nf_core_'  +  '{{pipeline_name}}_software_'  + 'mqc_'  + 'versions.yml',
 """,
     ),
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-            newLine: true
         ).set { ch_collated_versions }
 
-
 """,
         new="""\
-            newLine: true
         )
-
 """,
     ),
     Replace(
@@ -1426,30 +1178,22 @@ include { UTILS_NFCORE_PIPELINE     } from '../../nf-core/utils_nfcore_pipeline'
         methodsDescriptionText(ch_multiqc_custom_methods_description))
 
     ch_multiqc_files = ch_multiqc_files.mix(ch_collated_versions)
+""",
+        new="""\
+    //
+    ch_multiqc_files = ch_multiqc_files.mix(ch_collated_versions)
+""",
+    ),
+    Replace(
+        'workflows/{{pipeline_name}}.nf',
+        old="""\
     ch_multiqc_files = ch_multiqc_files.mix(
         ch_methods_description.collectFile(
             name: 'methods_description_mqc.yaml',
             sort: true
         )
-    )
-
-    MULTIQC (
-        ch_multiqc_files.collect(),
-        ch_multiqc_config.toList(),
-        ch_multiqc_custom_config.toList(),
-        ch_multiqc_logo.toList(),
-        [],
-        []
-    )
-
-    emit:multiqc_report = MULTIQC.out.report.toList() // channel: /path/to/multiqc_report.html
-    versions       = ch_versions                 // channel: [ path(versions.yml) ]
-
-}
 """,
         new="""\
-    //
-    ch_multiqc_files = ch_multiqc_files.mix(ch_collated_versions)
     def ch_summary_params = paramsSummaryMap(workflow, parameters_schema: "nextflow_schema.json")
     def ch_workflow_summary = channel.value(paramsSummaryMultiqc(ch_summary_params))
     ch_multiqc_files = ch_multiqc_files.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
@@ -1471,8 +1215,35 @@ include { UTILS_NFCORE_PIPELINE     } from '../../nf-core/utils_nfcore_pipeline'
                 [],
             ]
         }
+""",
+    ),
+    Replace(
+        'workflows/{{pipeline_name}}.nf',
+        old="""\
+
+    MULTIQC (
+        ch_multiqc_files.collect(),
+        ch_multiqc_config.toList(),
+        ch_multiqc_custom_config.toList(),
+        ch_multiqc_logo.toList(),
+        [],
+        []
     )
+
+    emit:multiqc_report = MULTIQC.out.report.toList() // channel: /path/to/multiqc_report.html
+""",
+        new="""\
     emit:multiqc_report = MULTIQC.out.report.map { _meta, report -> [report] }.toList() // channel: /path/to/multiqc_report.html
+""",
+    ),
+    Replace(
+        'workflows/{{pipeline_name}}.nf',
+        old="""\
+    versions       = ch_versions                 // channel: [ path(versions.yml) ]
+
+}
+""",
+        new="""\
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 }
 """,

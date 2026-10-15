@@ -19,27 +19,19 @@ operations = [
     Replace(
         '.github/actions/nf-test/action.yml',
         old="""\
-      if: contains(inputs.profile, 'singularity')
       uses: eWaterCycle/setup-apptainer@3f706d898c9db585b1d741b4692e66755f3a1b40 # v2
-
 """,
         new="""\
-      if: contains(inputs.profile, 'singularity')
       uses: eWaterCycle/setup-apptainer@4bb22c52d4f63406c49e94c804632975787312b3 # v2.0.0
-
 """,
     ),
     Replace(
         '.github/workflows/branch.yml',
         old="""\
-on:
   pull_request_target:
-    branches:
 """,
         new="""\
-on:
   pull_request:
-    branches:
 """,
     ),
     Replace(
@@ -60,14 +52,45 @@ permissions: {}
         old="""\
         if: github.repository == 'nf-core/{{pipeline_name}}'
         run: |
+""",
+        new="""\
+        if: github.repository == 'nf-core/{{pipeline_name}}'
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+""",
+    ),
+    Replace(
+        '.github/workflows/branch.yml',
+        old="""\
           { [[ ${{github.event.pull_request.head.repo.full_name }} == nf-core/{{pipeline_name}} ]] && [[ $GITHUB_HEAD_REF == "dev" ]]; } || [[ $GITHUB_HEAD_REF == "patch" ]]
-
+""",
+        new="""\
+          { [[ "$HEAD_REPO" == nf-core/{{pipeline_name}} ]] && [[ $GITHUB_HEAD_REF == "dev" ]]; } || [[ $GITHUB_HEAD_REF == "patch" ]]
+""",
+    ),
+    Replace(
+        '.github/workflows/branch.yml',
+        old="""\
       # If the above check failed, post a comment on the PR explaining the failure
       # NOTE - this doesn't currently work if the PR is coming from a fork, due to limitations in GitHub actions secrets
       - name: Post PR comment
-        if: failure()
+""",
+        new="""\
+      # If the above check failed, build a comment to be posted by the shared poster workflow
+      - name: Build PR comment
+""",
+    ),
+    Replace(
+        '.github/workflows/branch.yml',
+        old="""\
         uses: mshick/add-pr-comment@8e4927817251f1ff60c001f04568532b38e0b4a0 # v3
-        with:
+""",
+        new='        env:\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n          BASE_REF: ${{ github.event.pull_request.base.ref }}\n          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}\n          PR_USER: ${{ github.event.pull_request.user.login }}\n        run: |\n          mkdir -p pr-comment\n          echo "$PR_NUMBER" > pr-comment/pr_number.txt\n          echo "branch" > pr-comment/header.txt\n          cat > pr-comment/comment.md <<EOF\n          ## This PR is against the \\`${BASE_REF}\\` branch :x:\n\n          * Do not close this PR\n          * Click _Edit_ and change the \\`base\\` to \\`dev\\`\n          * This CI test will remain failed until you push a new commit\n\n          ---\n\n          Hi @${PR_USER},\n\n          It looks like this pull-request is has been made against the [${HEAD_REPO}](https://github.com/${HEAD_REPO}) ${BASE_REF} branch.\n          The ${BASE_REF} branch on nf-core repositories should always contain code from the latest release.\n          Because of this, PRs to ${BASE_REF} are only allowed if they come from the [${HEAD_REPO}](https://github.com/${HEAD_REPO}) \\`dev\\` branch.\n\n          You do not need to close this PR, you can change the target branch to \\`dev\\` by clicking the _"Edit"_ button at the top of this page.\n          Note that even after this, the test will continue to show as failing until you push a new commit.\n\n          Thanks again for your contribution!\n          EOF\n\n      - name: Upload PR comment artifact\n        if: failure()\n        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\n',
+    ),
+    Replace(
+        '.github/workflows/branch.yml',
+        old="""\
           message: |
             ## This PR is against the `${{github.event.pull_request.base.ref}}` branch :x:
 
@@ -90,7 +113,10 @@ permissions: {}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           allow-repeats: false
 """,
-        new='        if: github.repository == \'nf-core/{{pipeline_name}}\'\n        env:\n          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}\n        run: |\n          { [[ "$HEAD_REPO" == nf-core/{{pipeline_name}} ]] && [[ $GITHUB_HEAD_REF == "dev" ]]; } || [[ $GITHUB_HEAD_REF == "patch" ]]\n\n      # If the above check failed, build a comment to be posted by the shared poster workflow\n      - name: Build PR comment\n        if: failure()\n        env:\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n          BASE_REF: ${{ github.event.pull_request.base.ref }}\n          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}\n          PR_USER: ${{ github.event.pull_request.user.login }}\n        run: |\n          mkdir -p pr-comment\n          echo "$PR_NUMBER" > pr-comment/pr_number.txt\n          echo "branch" > pr-comment/header.txt\n          cat > pr-comment/comment.md <<EOF\n          ## This PR is against the \\`${BASE_REF}\\` branch :x:\n\n          * Do not close this PR\n          * Click _Edit_ and change the \\`base\\` to \\`dev\\`\n          * This CI test will remain failed until you push a new commit\n\n          ---\n\n          Hi @${PR_USER},\n\n          It looks like this pull-request is has been made against the [${HEAD_REPO}](https://github.com/${HEAD_REPO}) ${BASE_REF} branch.\n          The ${BASE_REF} branch on nf-core repositories should always contain code from the latest release.\n          Because of this, PRs to ${BASE_REF} are only allowed if they come from the [${HEAD_REPO}](https://github.com/${HEAD_REPO}) \\`dev\\` branch.\n\n          You do not need to close this PR, you can change the target branch to \\`dev\\` by clicking the _"Edit"_ button at the top of this page.\n          Note that even after this, the test will continue to show as failing until you push a new commit.\n\n          Thanks again for your contribution!\n          EOF\n\n      - name: Upload PR comment artifact\n        if: failure()\n        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\n        with:\n          name: pr-comment\n          path: pr-comment/\n',
+        new="""\
+          name: pr-comment
+          path: pr-comment/
+""",
     ),
     Replace(
         '.github/workflows/linting.yml',
@@ -300,60 +326,76 @@ jobs:
     Replace(
         '.github/workflows/release-announcements.yml',
         old="""\
-          echo "description=$(curl -s https://nf-co.re/pipelines.json | jq -r '.remote_workflows[] | select(.full_name == "${{ github.repository }}") | .description')" >> $GITHUB_OUTPUT
       - uses: rzr/fediverse-action@563159eb8d45f70ab6aaba36ed55cd037e51f441 # master
-        with:
 """,
         new="""\
-          echo "description=$(curl -s https://nf-co.re/pipelines.json | jq -r '.remote_workflows[] | select(.full_name == "${{ github.repository }}") | .description')" >> $GITHUB_OUTPUT
       - uses: rzr/fediverse-action@66c2cbb5b1997666b0e28d597631b6a4f09a2719 # v0.0.6
-        with:
 """,
     ),
     Replace(
         '.github/workflows/template-version-comment.yml',
         old="""\
-
 on: pull_request_target
-
 """,
         new="""\
-
 on:
   pull_request:
 
 permissions: {}
-
 """,
     ),
     Replace(
         '.github/workflows/template-version-comment.yml',
         old="""\
-jobs:
   template_version:
-    runs-on: ubuntu-latest
 """,
         new="""\
-jobs:
   check_template_version:
-    runs-on: ubuntu-latest
 """,
     ),
     Replace(
         '.github/workflows/template-version-comment.yml',
         old="""\
-          python -m pip install --upgrade pip
           pip install nf-core==${{ steps.read_yml.outputs['nf_core_version'] }}
-
+""",
+        new="""\
+          pip install nf-core
+""",
+    ),
+    Replace(
+        '.github/workflows/template-version-comment.yml',
+        old="""\
       - name: Check nf-core outdated
         id: nf_core_outdated
         run: echo "OUTPUT=$(pip list --outdated | grep nf-core)" >> ${GITHUB_ENV}
-
+""",
+        new="""\
+      - name: Build PR comment if template is outdated
+        # The fork-controlled version is passed via the environment and only ever
+        # used as quoted shell data (never interpolated into a command), so it
+        # cannot be used for script injection.
+        env:
+          PR_VERSION: ${{ steps.read_yml.outputs['nf_core_version'] }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          mkdir -p pr-comment
+          echo "$PR_NUMBER" > pr-comment/pr_number.txt
+          echo "template-version" > pr-comment/header.txt
+""",
+    ),
+    Replace(
+        '.github/workflows/template-version-comment.yml',
+        old="""\
       - name: Post nf-core template version comment
         uses: mshick/add-pr-comment@8e4927817251f1ff60c001f04568532b38e0b4a0 # v3
         if: |
           contains(env.OUTPUT, 'nf-core')
-        with:
+""",
+        new='          latest_version=$(nf-core --version | grep -oE \'[0-9]+\\.[0-9]+\\.[0-9]+\' | head -n1)\n\n          if [ -n "$PR_VERSION" ] && [ -n "$latest_version" ] && [ "$PR_VERSION" != "$latest_version" ]; then\n            cat > pr-comment/comment.md <<EOF\n          > [!WARNING]\n          > Newer version of the nf-core template is available.\n          >\n          > Your pipeline is using an old version of the nf-core template: ${PR_VERSION}.\n          > Please update your pipeline to the latest version.\n          >\n          > For more documentation on how to update your pipeline, please see the [Synchronisation documentation](https://nf-co.re/docs/developing/template-syncs/overview).\n          EOF\n          fi\n\n      - name: Upload PR comment artifact\n        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\n',
+    ),
+    Replace(
+        '.github/workflows/template-version-comment.yml',
+        old="""\
           repo-token: ${{ secrets.NF_CORE_BOT_AUTH_TOKEN }}
           allow-repeats: false
           message: |
@@ -366,19 +408,18 @@ jobs:
             > For more documentation on how to update your pipeline, please see the [Synchronisation documentation](https://nf-co.re/docs/developing/template-syncs/overview).
           #
 """,
-        new='          python -m pip install --upgrade pip\n          pip install nf-core\n\n      - name: Build PR comment if template is outdated\n        # The fork-controlled version is passed via the environment and only ever\n        # used as quoted shell data (never interpolated into a command), so it\n        # cannot be used for script injection.\n        env:\n          PR_VERSION: ${{ steps.read_yml.outputs[\'nf_core_version\'] }}\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n        run: |\n          mkdir -p pr-comment\n          echo "$PR_NUMBER" > pr-comment/pr_number.txt\n          echo "template-version" > pr-comment/header.txt\n\n          latest_version=$(nf-core --version | grep -oE \'[0-9]+\\.[0-9]+\\.[0-9]+\' | head -n1)\n\n          if [ -n "$PR_VERSION" ] && [ -n "$latest_version" ] && [ "$PR_VERSION" != "$latest_version" ]; then\n            cat > pr-comment/comment.md <<EOF\n          > [!WARNING]\n          > Newer version of the nf-core template is available.\n          >\n          > Your pipeline is using an old version of the nf-core template: ${PR_VERSION}.\n          > Please update your pipeline to the latest version.\n          >\n          > For more documentation on how to update your pipeline, please see the [Synchronisation documentation](https://nf-co.re/docs/developing/template-syncs/overview).\n          EOF\n          fi\n\n      - name: Upload PR comment artifact\n        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\n        with:\n          name: pr-comment\n          path: pr-comment/\n',
+        new="""\
+          name: pr-comment
+          path: pr-comment/
+""",
     ),
     Replace(
         'README.md',
         old="""\
-[![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.10.4-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-4.0.2-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/4.0.2)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
         new="""\
-[![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.10.4-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-4.0.3-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/4.0.3)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
     ),
     ManualStep(

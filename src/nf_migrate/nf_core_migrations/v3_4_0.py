@@ -19,11 +19,17 @@ operations = [
     Replace(
         '.devcontainer/devcontainer.json',
         old="""\
-    "name": "nfcore",
     "image": "nfcore/gitpod:latest",
     "remoteUser": "gitpod",
     "runArgs": ["--privileged"],
-
+""",
+        new="""\
+    "image": "nfcore/devcontainer:latest",
+""",
+    ),
+    Replace(
+        '.devcontainer/devcontainer.json',
+        old="""\
     // Configure tool-specific properties.
     "customizations": {
         // Configure properties specific to VS Code.
@@ -32,24 +38,24 @@ operations = [
             "settings": {
                 "python.defaultInterpreterPath": "/opt/conda/bin/python"
             },
-
+""",
+        new="""\
+    "remoteUser": "root",
+    "privileged": true,
+""",
+    ),
+    Replace(
+        '.devcontainer/devcontainer.json',
+        old="""\
             // Add the IDs of extensions you want installed when the container is created.
             "extensions": ["ms-python.python", "ms-python.vscode-pylance", "nf-core.nf-core-extensionpack"]
         }
     }
-}
 """,
         new="""\
-    "name": "nfcore",
-    "image": "nfcore/devcontainer:latest",
-
-    "remoteUser": "root",
-    "privileged": true,
-
     // Mount full current path to make mounting into docker-outside-of-docker work
     "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
     "workspaceFolder": "${localWorkspaceFolder}"
-}
 """,
     ),
     CreateFile(
@@ -64,18 +70,19 @@ echo "Welcome to the nf-core/{{pipeline_name}} devcontainer!" > /usr/local/etc/v
     Replace(
         '.github/actions/nf-test/action.yml',
         old="""\
-    - name: Set up Python
       uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-      with:
-        python-version: "3.13"
-
 """,
         new="""\
-    - name: Set up Python
       uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
-      with:
+""",
+    ),
+    Replace(
+        '.github/actions/nf-test/action.yml',
+        old="""\
+        python-version: "3.13"
+""",
+        new="""\
         python-version: "3.14"
-
 """,
     ),
     Replace(
@@ -94,46 +101,46 @@ echo "Welcome to the nf-core/{{pipeline_name}} devcontainer!" > /usr/local/etc/v
     Replace(
         '.github/workflows/awsfulltest.yml',
         old="""\
-        with:
           workspace_id: ${{ secrets.TOWER_WORKSPACE_ID }}
-          access_token: ${{ secrets.TOWER_ACCESS_TOKEN }}
-          compute_env: ${{ secrets.TOWER_COMPUTE_ENV }}
-          revision: ${{ steps.revision.outputs.revision }}
-          workdir: s3://${{ secrets.AWS_S3_BUCKET }}/work/{{pipeline_name}}/work-${{ steps.revision.outputs.revision }}
-          parameters: |
 """,
         new="""\
-        with:
           workspace_id: ${{ vars.TOWER_WORKSPACE_ID }}
-          access_token: ${{ secrets.TOWER_ACCESS_TOKEN }}
-          compute_env: ${{ vars.TOWER_COMPUTE_ENV }}
-          revision: ${{ steps.revision.outputs.revision }}
-          workdir: s3://${{ vars.AWS_S3_BUCKET }}/work/{{pipeline_name}}/work-${{ steps.revision.outputs.revision }}
-          parameters: |
 """,
     ),
     Replace(
         '.github/workflows/awsfulltest.yml',
         old="""\
-              "hook_url": "${{ secrets.MEGATESTS_ALERTS_SLACK_HOOK_URL }}",
-              "outdir": "s3://${{ secrets.AWS_S3_BUCKET }}/{{pipeline_name}}/results-${{ steps.revision.outputs.revision }}"
-            }
+          compute_env: ${{ secrets.TOWER_COMPUTE_ENV }}
 """,
         new="""\
-              "hook_url": "${{ secrets.MEGATESTS_ALERTS_SLACK_HOOK_URL }}",
-              "outdir": "s3://${{ vars.AWS_S3_BUCKET }}/{{pipeline_name}}/results-${{ steps.revision.outputs.revision }}"
-            }
+          compute_env: ${{ vars.TOWER_COMPUTE_ENV }}
 """,
     ),
     Replace(
         '.github/workflows/awsfulltest.yml',
         old="""\
-          path: |
+          workdir: s3://${{ secrets.AWS_S3_BUCKET }}/work/{{pipeline_name}}/work-${{ steps.revision.outputs.revision }}
+""",
+        new="""\
+          workdir: s3://${{ vars.AWS_S3_BUCKET }}/work/{{pipeline_name}}/work-${{ steps.revision.outputs.revision }}
+""",
+    ),
+    Replace(
+        '.github/workflows/awsfulltest.yml',
+        old="""\
+              "outdir": "s3://${{ secrets.AWS_S3_BUCKET }}/{{pipeline_name}}/results-${{ steps.revision.outputs.revision }}"
+""",
+        new="""\
+              "outdir": "s3://${{ vars.AWS_S3_BUCKET }}/{{pipeline_name}}/results-${{ steps.revision.outputs.revision }}"
+""",
+    ),
+    Replace(
+        '.github/workflows/awsfulltest.yml',
+        old="""\
             seqera_platform_action_*.log
             seqera_platform_action_*.json
 """,
         new="""\
-          path: |
             tower_action_*.log
             tower_action_*.json
 """,
@@ -141,46 +148,46 @@ echo "Welcome to the nf-core/{{pipeline_name}} devcontainer!" > /usr/local/etc/v
     Replace(
         '.github/workflows/awstest.yml',
         old="""\
-        with:
           workspace_id: ${{ secrets.TOWER_WORKSPACE_ID }}
-          access_token: ${{ secrets.TOWER_ACCESS_TOKEN }}
-          compute_env: ${{ secrets.TOWER_COMPUTE_ENV }}
-          revision: ${{ github.sha }}
-          workdir: s3://${{ secrets.AWS_S3_BUCKET }}/work/{{pipeline_name}}/work-${{ github.sha }}
-          parameters: |
 """,
         new="""\
-        with:
           workspace_id: ${{ vars.TOWER_WORKSPACE_ID }}
-          access_token: ${{ secrets.TOWER_ACCESS_TOKEN }}
-          compute_env: ${{ vars.TOWER_COMPUTE_ENV }}
-          revision: ${{ github.sha }}
-          workdir: s3://${{ vars.AWS_S3_BUCKET }}/work/{{pipeline_name}}/work-${{ github.sha }}
-          parameters: |
 """,
     ),
     Replace(
         '.github/workflows/awstest.yml',
         old="""\
-            {
-              "outdir": "s3://${{ secrets.AWS_S3_BUCKET }}/{{pipeline_name}}/results-test-${{ github.sha }}"
-            }
+          compute_env: ${{ secrets.TOWER_COMPUTE_ENV }}
 """,
         new="""\
-            {
-              "outdir": "s3://${{ vars.AWS_S3_BUCKET }}/{{pipeline_name}}/results-test-${{ github.sha }}"
-            }
+          compute_env: ${{ vars.TOWER_COMPUTE_ENV }}
 """,
     ),
     Replace(
         '.github/workflows/awstest.yml',
         old="""\
-          path: |
+          workdir: s3://${{ secrets.AWS_S3_BUCKET }}/work/{{pipeline_name}}/work-${{ github.sha }}
+""",
+        new="""\
+          workdir: s3://${{ vars.AWS_S3_BUCKET }}/work/{{pipeline_name}}/work-${{ github.sha }}
+""",
+    ),
+    Replace(
+        '.github/workflows/awstest.yml',
+        old="""\
+              "outdir": "s3://${{ secrets.AWS_S3_BUCKET }}/{{pipeline_name}}/results-test-${{ github.sha }}"
+""",
+        new="""\
+              "outdir": "s3://${{ vars.AWS_S3_BUCKET }}/{{pipeline_name}}/results-test-${{ github.sha }}"
+""",
+    ),
+    Replace(
+        '.github/workflows/awstest.yml',
+        old="""\
             seqera_platform_action_*.log
             seqera_platform_action_*.json
 """,
         new="""\
-          path: |
             tower_action_*.log
             tower_action_*.json
 """,
@@ -188,57 +195,46 @@ echo "Welcome to the nf-core/{{pipeline_name}} devcontainer!" > /usr/local/etc/v
     Replace(
         '.github/workflows/clean-up.yml',
         old="""\
-    steps:
       - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9
-        with:
 """,
         new="""\
-    steps:
       - uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008 # v10
-        with:
 """,
     ),
     Replace(
         '.github/workflows/download_pipeline.yml',
         old="""\
-
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: "3.13"
-          architecture: "x64"
 """,
         new="""\
-
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
-        with:
-          python-version: "3.14"
-          architecture: "x64"
 """,
     ),
     Replace(
         '.github/workflows/download_pipeline.yml',
         old="""\
-          python -m pip install --upgrade pip
-          pip install git+https://github.com/nf-core/tools.git@dev
-
+          python-version: "3.13"
 """,
         new="""\
-          python -m pip install --upgrade pip
+          python-version: "3.14"
+""",
+    ),
+    Replace(
+        '.github/workflows/download_pipeline.yml',
+        old="""\
+          pip install git+https://github.com/nf-core/tools.git@dev
+""",
+        new="""\
           pip install git+https://github.com/nf-core/tools.git
-
 """,
     ),
     Replace(
         '.github/workflows/fix_linting.yml',
         old="""\
-      # Use the @nf-core-bot token to check out so we can push later
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-        with:
 """,
         new="""\
-      # Use the @nf-core-bot token to check out so we can push later
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-        with:
 """,
     ),
     Replace(
@@ -257,18 +253,19 @@ echo "Welcome to the nf-core/{{pipeline_name}} devcontainer!" > /usr/local/etc/v
     Replace(
         '.github/workflows/fix_linting.yml',
         old="""\
-      # Install and run pre-commit
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: "3.13"
-
 """,
         new="""\
-      # Install and run pre-commit
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
-        with:
+""",
+    ),
+    Replace(
+        '.github/workflows/fix_linting.yml',
+        old="""\
+          python-version: "3.13"
+""",
+        new="""\
           python-version: "3.14"
-
 """,
     ),
     Replace(
@@ -326,21 +323,31 @@ echo "Welcome to the nf-core/{{pipeline_name}} devcontainer!" > /usr/local/etc/v
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-    steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-
+""",
+        new="""\
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+""",
+    ),
+    Replace(
+        '.github/workflows/linting.yml',
+        old="""\
       - name: Set up Python 3.13
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+""",
+        new="""\
+      - name: Set up Python 3.14
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+""",
+    ),
+    Replace(
+        '.github/workflows/linting.yml',
+        old="""\
         with:
           python-version: "3.13"
 
 """,
         new="""\
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-
-      - name: Set up Python 3.14
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: "3.14"
 
@@ -349,28 +356,29 @@ echo "Welcome to the nf-core/{{pipeline_name}} devcontainer!" > /usr/local/etc/v
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-      - name: Check out pipeline code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-
 """,
         new="""\
-      - name: Check out pipeline code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-
 """,
     ),
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+""",
+        new="""\
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+""",
+    ),
+    Replace(
+        '.github/workflows/linting.yml',
+        old="""\
         with:
           python-version: "3.13"
           architecture: "x64"
 """,
         new="""\
-
-      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: "3.14"
           architecture: "x64"
@@ -379,27 +387,19 @@ echo "Welcome to the nf-core/{{pipeline_name}} devcontainer!" > /usr/local/etc/v
     Replace(
         '.github/workflows/linting_comment.yml',
         old="""\
-      - name: Post PR comment
         uses: marocchino/sticky-pull-request-comment@52423e01640425a022ef5fd42c6fb5f633a02728 # v2
-        with:
 """,
         new="""\
-      - name: Post PR comment
         uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2
-        with:
 """,
     ),
     Replace(
         '.github/workflows/nf-test.yml',
         old="""\
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   NFT_VER: "0.9.2"
-  NFT_WORKDIR: "~"
 """,
         new="""\
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   NFT_VER: "0.9.3"
-  NFT_WORKDIR: "~"
 """,
     ),
     Replace(
@@ -418,14 +418,10 @@ echo "Welcome to the nf-core/{{pipeline_name}} devcontainer!" > /usr/local/etc/v
     Replace(
         '.github/workflows/nf-test.yml',
         old="""\
-        NXF_VER:
           - "24.10.5"
-          - "latest-everything"
 """,
         new="""\
-        NXF_VER:
           - "25.04.0"
-          - "latest-everything"
 """,
     ),
     Replace(
@@ -489,14 +485,10 @@ echo "Welcome to the nf-core/{{pipeline_name}} devcontainer!" > /usr/local/etc/v
     Replace(
         '.github/workflows/template-version-comment.yml',
         old="""\
-      - name: Check out pipeline code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-        with:
 """,
         new="""\
-      - name: Check out pipeline code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-        with:
 """,
     ),
     DeleteFile(
@@ -517,14 +509,10 @@ vscode:
     Replace(
         '.pre-commit-config.yaml',
         old="""\
-  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
-    hooks:
 """,
         new="""\
-  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
-    hooks:
 """,
     ),
     Replace(
@@ -542,69 +530,50 @@ ro-crate-metadata.json
     Replace(
         'README.md',
         old="""\
-
 [![Nextflow](https://img.shields.io/badge/version-%E2%89%A524.10.5-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-3.3.2-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/3.3.2)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
         new="""\
-
 [![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-3.4.0-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/3.4.0)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 """,
     ),
     Replace(
         'docs/usage.md',
         old="""\
-- `charliecloud`
   - A generic configuration profile to be used with [Charliecloud](https://hpc.github.io/charliecloud/)
-- `apptainer`
 """,
         new="""\
-- `charliecloud`
   - A generic configuration profile to be used with [Charliecloud](https://charliecloud.io/)
-- `apptainer`
 """,
     ),
     Replace(
         'main.nf',
         old="""\
-        params.outdir,
         params.input
-    )
 """,
         new="""\
-        params.outdir,
         params.input,
         params.help,
         params.help_full,
         params.show_hidden
-    )
 """,
     ),
     Replace(
         'nextflow.config',
         old="""\
-    monochrome_logs              = false
     hook_url                     = null
-    help                         = false
 """,
         new="""\
-    monochrome_logs              = false
     hook_url                     = System.getenv('HOOK_URL')
-    help                         = false
 """,
     ),
     Replace(
         'nextflow.config',
         old="""\
-    }
     arm {
-        docker.runOptions       = '-u $(id -u):$(id -g) --platform=linux/amd64'
 """,
         new="""\
-    }
     arm64 {
         process.arch            = 'arm64'
         // TODO https://github.com/nf-core/modules/issues/6694
@@ -617,7 +586,6 @@ ro-crate-metadata.json
         wave.strategy           = 'conda,container'
     }
     emulate_amd64 {
-        docker.runOptions       = '-u $(id -u):$(id -g) --platform=linux/amd64'
 """,
     ),
     Replace(
@@ -659,27 +627,19 @@ aws.client.anonymous = !params.igenomes_ignore && params.igenomes_base?.startsWi
     Replace(
         'nextflow.config',
         old="""\
-    defaultBranch   = 'master'
     nextflowVersion = '!>=24.10.5'
-    version         = '{{pipeline_version}}'
 """,
         new="""\
-    defaultBranch   = 'master'
     nextflowVersion = '!>=25.04.0'
-    version         = '{{pipeline_version}}'
 """,
     ),
     Replace(
         'nextflow.config',
         old="""\
-plugins {
     id 'nf-schema@2.4.2' // Validation of pipeline parameters and creation of an input channel from a sample sheet
-}
 """,
         new="""\
-plugins {
     id 'nf-schema@2.5.1' // Validation of pipeline parameters and creation of an input channel from a sample sheet
-}
 """,
     ),
     Replace(
@@ -750,12 +710,9 @@ include { completionEmail           } from '../../nf-core/utils_nfcore_pipeline'
     Replace(
         'subworkflows/local/utils_nfcore_{{pipeline_name}}_pipeline/main.nf',
         old="""\
-        validate_params,
         null
-    )
 """,
         new="""\
-        validate_params,
         null,
         help,
         help_full,
@@ -763,20 +720,15 @@ include { completionEmail           } from '../../nf-core/utils_nfcore_pipeline'
         before_text,
         after_text,
         command
-    )
 """,
     ),
     Replace(
         'tests/.nftignore',
         old="""\
-multiqc/multiqc_data/fastqc_top_overrepresented_sequences_table.txt
 multiqc/multiqc_data/BETA-multiqc.parquet
-multiqc/multiqc_data/multiqc.log
 """,
         new="""\
-multiqc/multiqc_data/fastqc_top_overrepresented_sequences_table.txt
 multiqc/multiqc_data/multiqc.parquet
-multiqc/multiqc_data/multiqc.log
 """,
     ),
     Replace(
