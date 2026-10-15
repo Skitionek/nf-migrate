@@ -16,6 +16,7 @@ from collections import Counter
 from pathlib import Path
 
 from nf_migrate.cli import BUNDLED_MIGRATIONS
+from nf_migrate.detect import detect_version
 from nf_migrate.migrations import (
     MigrationError,
     load_migrations,
@@ -126,6 +127,7 @@ def evaluate_step(
         step["skipped"] = str(error)
         return step
 
+    step["detected"] = detect_version(before, chain).version
     workspace = Workspace(before, template_variables(nf_core_yml))
     outcomes: Counter = Counter()
     conflicts: list[str] = []
@@ -163,7 +165,9 @@ def main() -> None:
         evaluate_step(repo, work, merge, target, chain)
         for merge, target in template_merges(repo, revisions)
     ]
-    print(json.dumps({"pipeline": repo.name, "steps": steps}, indent=2))
+    dev_commit = git(repo, "rev-parse", "origin/dev")
+    result = {"pipeline": repo.name, "dev": dev_commit, "steps": steps}
+    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":

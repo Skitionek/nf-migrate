@@ -132,17 +132,14 @@ Migrations may also define their own operation classes: anything with a
 
 ## Validation
 
-`scripts/evaluate_pipeline.py REPO WORK_DIR` replays a pipeline's real
-template merges: for each TEMPLATE commit the chain covers, it applies the
-chain to `dev` just before the merge and compares the result with the merge
-the maintainers resolved by hand.
-
-Across 11 nf-core pipelines (rnaseq, sarek, mag, taxprofiler, ampliseq,
-methylseq, fetchngs, scrnaseq, differentialabundance, atacseq, chipseq; 43
-merges), 80% of text operations applied automatically and 578 of 721 changed
-files matched the human merge. Conflicts concentrate in pipeline-owned code:
-`workflows/<name>.nf`, the local utils subworkflow, README.md and
-nextflow.config.
+Replaying 43 real template merges from 11 nf-core pipelines, 80% of the
+template changes applied automatically, and 80% of the files nf-migrate
+changed matched what the maintainers merged by hand. Nearly every merge
+still had a few conflicts, mostly in code the pipeline owns
+(`workflows/<name>.nf`, the local utils subworkflow, README.md,
+nextflow.config): 5 of 40 merges would have gone through untouched. See
+[docs/validation.md](docs/validation.md) for the method, per-pipeline
+results, version detection and how to reproduce it.
 
 ## Development
 
