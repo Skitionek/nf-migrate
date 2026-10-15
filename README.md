@@ -89,12 +89,27 @@ overwritten.
 
 Inputs: `github-token` (default `github.token`), `bot-login` (default
 `nf-core-bot`, checked on PR events only), `pr-number` (manual runs),
-`push` and `comment` (both default `true`). Outputs: `status` (`resolved`,
+`detect-version` (default `false`, see below), `push` and `comment` (both
+default `true`). Outputs: `status` (`resolved`,
 `conflicts` or `skipped`), `commit` and `pr-number`.
 
 The push uses the credentials `actions/checkout` stored. Pushes made with
 the default `GITHUB_TOKEN` do not start other workflows, so to run CI on
 the resolved PR, give checkout a PAT or GitHub App token instead.
+
+## When nf_core_version is wrong
+
+`nf_core_version` can disagree with the files, for example after a template
+update was reverted without resetting it. `nf-migrate detect` checks every
+migration against the files: operations that still apply say the pipeline
+is before that release, operations already applied say it is past it, and
+the version most evidence agrees with wins (ties keep the stamp).
+
+`upgrade --detect` and `merge-template --detect` (the action's
+`detect-version` input) start from the detected version, but only when it
+is older than the stamp: migrations already applied are no-ops, while
+starting past the stamp could skip changes a partly updated pipeline still
+lacks. The PR comment warns about a mismatch even without the flag.
 
 ## Adding a migration for a new tools release
 

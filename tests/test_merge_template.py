@@ -170,3 +170,20 @@ def test_cli_prints_the_merge_commit_and_writes_the_report(
     assert exit_code == 0
     assert git(repo, "cat-file", "-t", commit) == "commit"
     assert "3.3.1" in report_file.read_text()
+
+
+def test_report_warns_when_files_disagree_with_the_stamp(
+    repo: Path, migrations_dir: Path
+) -> None:
+    # Given dev already carries the 3.3.1 change but is stamped 3.2.1
+    commit_files(repo, {"base.config": "retry = 104 + 175\n"}, "cherry-pick")
+
+    # When
+    result = merge_template(repo, "dev", "TEMPLATE", migrations_dir)
+
+    # Then
+    assert result.report.succeeded
+    assert result.detection.version == "3.3.1"
+    markdown = result.render_markdown()
+    assert "nf_core_version" in markdown
+    assert "3.3.1" in markdown

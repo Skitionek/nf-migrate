@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from nf_migrate.autogenerate import generate_migration
+from nf_migrate.detect import detect_version
 from nf_migrate.merge_template import merge_template
 from nf_migrate.migrations import MigrationError, load_migrations
 from nf_migrate.runner import upgrade
@@ -40,6 +41,11 @@ def _build_parser() -> argparse.ArgumentParser:
     current = commands.add_parser("current", help="show the template version")
     current.set_defaults(handler=_current)
 
+    detect = commands.add_parser(
+        "detect", help="work out the template version from the files"
+    )
+    detect.set_defaults(handler=_detect)
+
     history = commands.add_parser("history", help="list migrations in order")
     history.set_defaults(handler=_history)
 
@@ -47,6 +53,12 @@ def _build_parser() -> argparse.ArgumentParser:
     upgrade_command.add_argument("target", nargs="?", default="head")
     upgrade_command.add_argument(
         "--dry-run", action="store_true", help="print the diff, write nothing"
+    )
+    upgrade_command.add_argument(
+        "--detect",
+        action="store_true",
+        help="start from the version the files look like, if older than "
+        "nf_core_version",
     )
     upgrade_command.set_defaults(handler=_upgrade)
 
@@ -80,6 +92,12 @@ def _build_parser() -> argparse.ArgumentParser:
     merge.add_argument(
         "--report-file", type=Path, help="write the Markdown report here"
     )
+    merge.add_argument(
+        "--detect",
+        action="store_true",
+        help="start from the version the files look like, if older than "
+        "nf_core_version",
+    )
     merge.set_defaults(handler=_merge_template)
 
     return parser
@@ -91,6 +109,7 @@ def _merge_template(arguments: argparse.Namespace) -> int:
         arguments.base,
         arguments.head,
         arguments.migrations,
+        detect=arguments.detect,
     )
     if arguments.report_file is not None:
         arguments.report_file.write_text(result.render_markdown())
@@ -106,6 +125,13 @@ def _current(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def _detect(arguments: argparse.Namespace) -> int:
+    chain = load_migrations(arguments.migrations)
+    detection = detect_version(arguments.project, chain)
+    print(detection.render())
+    return 0
+
+
 def _history(arguments: argparse.Namespace) -> int:
     current_version = read_version(arguments.project)
     for migration in load_migrations(arguments.migrations):
@@ -116,11 +142,22 @@ def _history(arguments: argparse.Namespace) -> int:
 
 def _upgrade(arguments: argparse.Namespace) -> int:
     chain = load_migrations(arguments.migrations)
+    start_version = None
+    if arguments.detect:
+        detection = detect_version(arguments.project, chain)
+        start_version = detection.upgrade_from
+        if not detection.matches_stamp:
+            print(
+                f"nf_core_version says {detection.stamped}, files look like "
+                f"{detection.version}; upgrading from {start_version}",
+                file=sys.stderr,
+            )
     report = upgrade(
         arguments.project,
         chain,
         target=arguments.target,
         dry_run=arguments.dry_run,
+        current=start_version,
     )
     if arguments.dry_run:
         print(report.diff, end="")

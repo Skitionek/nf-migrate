@@ -23,6 +23,12 @@ inputs:
       On workflow_dispatch, the template sync PR to resolve. Empty picks the
       newest open PR from an nf-core-template-merge-* branch.
     default: ""
+  detect-version:
+    description: >-
+      Start from the template version the files look like when it is older
+      than nf_core_version, e.g. after a reverted template update. The
+      report warns about a mismatch either way.
+    default: "false"
   push:
     description: Push the merge commit to the PR branch when no step conflicts.
     default: "true"
@@ -129,15 +135,20 @@ runs:
         BASE_REF: ${{ steps.guard.outputs.base-ref }}
         HEAD_REF: ${{ steps.guard.outputs.head-ref }}
         REPORT_FILE: ${{ runner.temp }}/nf-migrate-report.md
+        DETECT_VERSION: ${{ inputs.detect-version }}
         GIT_AUTHOR_NAME: github-actions[bot]
         GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
         GIT_COMMITTER_NAME: github-actions[bot]
         GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
       run: |
         # Exit code 1 means a migration conflicted; anything else is an error.
+        detect_flag=()
+        if [ "$DETECT_VERSION" = "true" ]; then
+          detect_flag=(--detect)
+        fi
         set +e
         commit=$(uvx --from "$GITHUB_ACTION_PATH" nf-migrate merge-template \
-          --repo . --report-file "$REPORT_FILE" \
+          --repo . --report-file "$REPORT_FILE" "${detect_flag[@]}" \
           "origin/$BASE_REF" "origin/$HEAD_REF")
         exit_code=$?
         set -e

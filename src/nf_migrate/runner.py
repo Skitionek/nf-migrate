@@ -80,6 +80,7 @@ def upgrade(
     chain: list[Migration],
     target: str,
     dry_run: bool = False,
+    current: str | None = None,
 ) -> UpgradeReport:
     """Upgrade `project` to `target`, stopping at the first conflict.
 
@@ -87,7 +88,9 @@ def upgrade(
     or leaves the pipeline untouched — the same guarantee Alembic gets from
     running each revision in a transaction.
     """
-    current = read_version(project)
+    # `current` overrides nf_core_version, e.g. with a detected version.
+    if current is None:
+        current = read_version(project)
     report = UpgradeReport()
 
     # A dry run keeps one workspace so later migrations see earlier changes.
