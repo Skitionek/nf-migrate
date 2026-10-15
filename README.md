@@ -19,7 +19,11 @@ small idempotent operations, and applies them without an LLM:
 
 Each migration is all-or-nothing: a conflict leaves every file and the
 `nf_core_version` in `.nf-core.yml` unchanged, and the report names the
-conflicting hunks.
+conflicting hunks. With `--allow-conflicts` (on `upgrade` and
+`merge-template`), every change that fits is applied and the upgrade
+carries on to the target; a file with any conflicting change is left
+untouched as a whole, so it is never half converted, and the report shows
+each conflicting template change as a diff to apply by hand.
 
 Migrations are pipeline-independent. Values the template bakes in are stored
 as placeholders and filled from the target's `.nf-core.yml` `template:`

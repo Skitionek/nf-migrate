@@ -29,6 +29,9 @@ class OperationResult:
     path: str
     outcome: Outcome
     message: str = ""
+    # The template change as a diff; reports show it for conflicts, so a
+    # maintainer can apply it by hand.
+    suggestion: str = ""
 
 
 class Workspace:
@@ -66,6 +69,16 @@ class Workspace:
     def restore(self, snapshot: dict[str, str | None]) -> None:
         self._pending = dict(snapshot)
 
+    def restore_paths(
+        self, snapshot: dict[str, str | None], paths: set[str]
+    ) -> None:
+        """Undo changes to `paths` made since `snapshot`."""
+        for path in paths:
+            if path in snapshot:
+                self._pending[path] = snapshot[path]
+            else:
+                self._pending.pop(path, None)
+
     def changed_paths(self) -> list[str]:
         return [
             path
@@ -102,6 +115,16 @@ class Workspace:
         if not file_path.is_file():
             return None
         return file_path.read_text()
+
+
+def _change_diff(path: str, old: str, new: str) -> str:
+    diff_lines = difflib.unified_diff(
+        old.splitlines(keepends=True),
+        new.splitlines(keepends=True),
+        fromfile=f"a/{path}",
+        tofile=f"b/{path}",
+    )
+    return "".join(diff_lines)
 
 
 def find_line_aligned(content: str, text: str) -> list[int]:
@@ -143,24 +166,26 @@ class Replace:
         old = workspace.expand(self.old)
         new = workspace.expand(self.new)
 
+        change = _change_diff(path, old, new)
+
         content = workspace.read(path)
         if content is None:
-            return OperationResult(
-                path, Outcome.CONFLICT, "file does not exist"
-            )
+            message = "file does not exist"
+            return OperationResult(path, Outcome.CONFLICT, message, change)
 
         old_positions = find_line_aligned(content, old)
         if len(old_positions) == 1:
             start = old_positions[0]
             end = start + len(old)
             workspace.write(path, content[:start] + new + content[end:])
-            return OperationResult(path, Outcome.APPLIED)
+            return OperationResult(path, Outcome.APPLIED, "", change)
         if len(old_positions) > 1:
             message = f"old text found {len(old_positions)} times"
-            return OperationResult(path, Outcome.CONFLICT, message)
+            return OperationResult(path, Outcome.CONFLICT, message, change)
         if new and find_line_aligned(content, new):
-            return OperationResult(path, Outcome.ALREADY_APPLIED)
-        return OperationResult(path, Outcome.CONFLICT, "old text not found")
+            return OperationResult(path, Outcome.ALREADY_APPLIED, "", change)
+        message = "old text not found"
+        return OperationResult(path, Outcome.CONFLICT, message, change)
 
 
 @dataclass(frozen=True, slots=True)

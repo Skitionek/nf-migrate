@@ -173,3 +173,82 @@ def test_manual_steps_are_reported_without_blocking_the_upgrade(
     assert report.succeeded
     assert read_version(project_dir) == "3.3.2"
     assert "MANUAL ro-crate-metadata.json: regenerate" in report.render()
+
+
+# Applying what fits
+def test_allow_conflicts_applies_what_fits_and_reports_the_rest(
+    project_dir: Path, tmp_path: Path
+) -> None:
+    # Given a release with one change that fits and one, in another file,
+    # that does not
+    directory = tmp_path / "partial_migrations"
+    directory.mkdir()
+    (directory / "v3_3_1.py").write_text(
+        "from nf_migrate.operations import Replace\n"
+        "revision = '3.3.1'\n"
+        "down_revision = '3.2.1'\n"
+        "operations = [\n"
+        "    Replace('base.config', old='retry = 104\\n',"
+        " new='retry = 104 + 175\\n'),\n"
+        "    Replace('other.config', old='missing\\n', new='added\\n'),\n"
+        "]\n"
+    )
+
+    # When
+    report = upgrade(
+        project_dir,
+        load_migrations(directory),
+        target="head",
+        allow_conflicts=True,
+    )
+
+    # Then
+    assert not report.succeeded
+    assert (project_dir / "base.config").read_text() == "retry = 104 + 175\n"
+    assert read_version(project_dir) == "3.3.1"
+    markdown = report.render_markdown()
+    assert "-missing" in markdown
+    assert "+added" in markdown
+
+
+def test_allow_conflicts_leaves_a_file_with_a_conflict_untouched(
+    project_dir: Path, tmp_path: Path
+) -> None:
+    # Given a release that edits igenomes.config twice, the second edit
+    # conflicting, and base.config once
+    (project_dir / "igenomes.config").write_text("params {\ncustom\n}\n")
+    directory = tmp_path / "partial_migrations"
+    directory.mkdir()
+    (directory / "v3_3_1.py").write_text(
+        "from nf_migrate.operations import Replace\n"
+        "revision = '3.3.1'\n"
+        "down_revision = '3.2.1'\n"
+        "operations = [\n"
+        "    Replace('igenomes.config', old='params {\\n',"
+        " new='params.genomes = [\\n'),\n"
+        "    Replace('igenomes.config', old='template\\n}\\n',"
+        " new='template\\n]\\n'),\n"
+        "    Replace('base.config', old='retry = 104\\n',"
+        " new='retry = 104 + 175\\n'),\n"
+        "]\n"
+    )
+
+    # When
+    report = upgrade(
+        project_dir,
+        load_migrations(directory),
+        target="head",
+        allow_conflicts=True,
+    )
+
+    # Then the half-convertible file is left alone, the other file is not
+    assert (project_dir / "igenomes.config").read_text() == (
+        "params {\ncustom\n}\n"
+    )
+    assert (project_dir / "base.config").read_text() == "retry = 104 + 175\n"
+    conflicts = report.migrations[0].conflicts
+    assert [conflict.path for conflict in conflicts] == [
+        "igenomes.config",
+        "igenomes.config",
+    ]
+    assert "held back" in conflicts[0].message

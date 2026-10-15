@@ -48,6 +48,7 @@ def merge_template(
     head: str,
     migrations_dir: Path,
     detect: bool = False,
+    allow_conflicts: bool = False,
 ) -> MergeResult:
     """Upgrade `base` to the template version on `head`.
 
@@ -55,7 +56,8 @@ def merge_template(
     no commit is made and the report says what needs resolving by hand.
     The template version is always detected from the files and reported;
     with `detect`, the upgrade also starts from it when it is older than
-    the stamp.
+    the stamp. With `allow_conflicts` the merge commit holds every change
+    that fits, and the report lists the conflicts left for review.
     """
     base_sha = _git(repo, "rev-parse", "--verify", f"{base}^{{commit}}")
     head_sha = _git(repo, "rev-parse", "--verify", f"{head}^{{commit}}")
@@ -80,10 +82,14 @@ def merge_template(
             detection = detect_version(worktree, chain)
             start_version = detection.upgrade_from if detect else None
             report = upgrade(
-                worktree, chain, target=target_version, current=start_version
+                worktree,
+                chain,
+                target=target_version,
+                current=start_version,
+                allow_conflicts=allow_conflicts,
             )
             commit = None
-            if report.succeeded:
+            if report.succeeded or allow_conflicts:
                 commit = _commit_merge(
                     worktree, base_sha, head_sha, target_version
                 )

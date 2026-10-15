@@ -187,3 +187,22 @@ def test_report_warns_when_files_disagree_with_the_stamp(
     markdown = result.render_markdown()
     assert "nf_core_version" in markdown
     assert "3.3.1" in markdown
+
+
+def test_allow_conflicts_still_creates_the_merge_commit(
+    repo: Path, migrations_dir: Path
+) -> None:
+    # Given
+    commit_files(repo, {"base.config": "retry = 'custom'\n"}, "customise")
+
+    # When
+    result = merge_template(
+        repo, "dev", "TEMPLATE", migrations_dir, allow_conflicts=True
+    )
+
+    # Then
+    assert not result.report.succeeded
+    assert result.commit is not None
+    assert git(repo, "show", f"{result.commit}:.nf-core.yml") == (
+        "nf_core_version: 3.3.1"
+    )

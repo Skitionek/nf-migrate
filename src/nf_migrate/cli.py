@@ -60,6 +60,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="start from the version the files look like, if older than "
         "nf_core_version",
     )
+    upgrade_command.add_argument(
+        "--allow-conflicts",
+        action="store_true",
+        help="apply every change that fits and report the conflicts",
+    )
     upgrade_command.set_defaults(handler=_upgrade)
 
     stamp = commands.add_parser(
@@ -98,6 +103,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="start from the version the files look like, if older than "
         "nf_core_version",
     )
+    merge.add_argument(
+        "--allow-conflicts",
+        action="store_true",
+        help="commit every change that fits and report the conflicts",
+    )
     merge.set_defaults(handler=_merge_template)
 
     return parser
@@ -110,6 +120,7 @@ def _merge_template(arguments: argparse.Namespace) -> int:
         arguments.head,
         arguments.migrations,
         detect=arguments.detect,
+        allow_conflicts=arguments.allow_conflicts,
     )
     if arguments.report_file is not None:
         arguments.report_file.write_text(result.render_markdown())
@@ -158,6 +169,7 @@ def _upgrade(arguments: argparse.Namespace) -> int:
         target=arguments.target,
         dry_run=arguments.dry_run,
         current=start_version,
+        allow_conflicts=arguments.allow_conflicts,
     )
     if arguments.dry_run:
         print(report.diff, end="")

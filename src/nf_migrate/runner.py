@@ -1,6 +1,6 @@
 """Apply pending migrations to a pipeline, one migration at a time."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from nf_migrate.migrations import Migration, pending_migrations
@@ -69,6 +69,8 @@ class UpgradeReport:
             for result in migration.results:
                 if result.outcome is Outcome.CONFLICT:
                     lines.append(f"- :x: `{result.path}`: {result.message}")
+                    if result.suggestion:
+                        lines.append(_suggestion_block(result.suggestion))
                 elif result.outcome is Outcome.MANUAL:
                     lines.append(f"- [ ] `{result.path}`: {result.message}")
             lines.append("")
@@ -81,12 +83,17 @@ def upgrade(
     target: str,
     dry_run: bool = False,
     current: str | None = None,
+    allow_conflicts: bool = False,
 ) -> UpgradeReport:
     """Upgrade `project` to `target`, stopping at the first conflict.
 
     Each migration either applies completely, including its version stamp,
     or leaves the pipeline untouched — the same guarantee Alembic gets from
     running each revision in a transaction.
+
+    With `allow_conflicts`, every release keeps the changes that fit and the
+    upgrade carries on to `target`; the report lists what is left to do by
+    hand, so `succeeded` stays False.
     """
     # `current` overrides nf_core_version, e.g. with a detected version.
     if current is None:
@@ -97,9 +104,11 @@ def upgrade(
     nf_core_yml = (project / NF_CORE_YML).read_text()
     workspace = Workspace(project, template_variables(nf_core_yml))
     for migration in pending_migrations(chain, current, target):
-        migration_report = _apply_migration(migration, workspace)
+        migration_report = _apply_migration(
+            migration, workspace, allow_conflicts
+        )
         report.migrations.append(migration_report)
-        if migration_report.conflicts:
+        if migration_report.conflicts and not allow_conflicts:
             break
         if not dry_run:
             workspace.commit()
@@ -110,17 +119,61 @@ def upgrade(
 
 
 def _apply_migration(
-    migration: Migration, workspace: Workspace
+    migration: Migration, workspace: Workspace, allow_conflicts: bool = False
 ) -> MigrationReport:
     checkpoint = workspace.snapshot()
 
     results = [operation.apply(workspace) for operation in migration.operations]
     migration_report = MigrationReport(migration.revision, results)
 
-    if migration_report.conflicts:
+    if migration_report.conflicts and not allow_conflicts:
         workspace.restore(checkpoint)
         return migration_report
+    if migration_report.conflicts:
+        migration_report = _hold_back_conflicting_files(
+            migration_report, workspace, checkpoint
+        )
 
     nf_core_yml = workspace.read(NF_CORE_YML) or ""
     workspace.write(NF_CORE_YML, stamp_version(nf_core_yml, migration.revision))
     return migration_report
+
+
+def _hold_back_conflicting_files(
+    migration_report: MigrationReport,
+    workspace: Workspace,
+    checkpoint: dict[str, str | None],
+) -> MigrationReport:
+    """Leave every file with a conflict as it was before this release.
+
+    A file that got some of a release's changes but not others can end up
+    half converted and broken, so its changes are reported together for a
+    maintainer instead.
+    """
+    conflicting_paths = {
+        conflict.path for conflict in migration_report.conflicts
+    }
+    workspace.restore_paths(checkpoint, conflicting_paths)
+
+    results: list[OperationResult] = []
+    for result in migration_report.results:
+        is_held_back = (
+            result.path in conflicting_paths
+            and result.outcome is Outcome.APPLIED
+        )
+        if is_held_back:
+            message = "held back: another change to this file conflicts"
+            result = replace(result, outcome=Outcome.CONFLICT, message=message)
+        results.append(result)
+    return MigrationReport(migration_report.revision, results)
+
+
+def _suggestion_block(diff: str) -> str:
+    """A collapsed diff of the template change a conflict could not place."""
+    fence = "````" if "```" in diff else "```"
+    body = diff if diff.endswith("\n") else diff + "\n"
+    indented = "".join(f"  {line}" for line in body.splitlines(keepends=True))
+    return (
+        "\n  <details><summary>template change</summary>\n\n"
+        f"  {fence}diff\n{indented}  {fence}\n\n  </details>\n"
+    )
