@@ -2,7 +2,7 @@
 
 How well does the bundled migration chain (nf-core/tools 3.3.1 → 4.1.0) do
 on real pipelines, compared with the template merges their maintainers
-resolved by hand?
+resolved by hand? Figures are for nf-migrate 0.2.0.
 
 ## Method
 
@@ -53,59 +53,68 @@ template merges in the 3.3.1–4.1.0 range, evaluated on 2026-10-15.
 
 | Pipeline | Merges | Applied | Already applied | Conflict | Manual step | Changed files identical to the human merge |
 |---|---|---|---|---|---|---|
-| ampliseq | 5 | 212 | 13 | 40 | 25 | 78/92 |
-| atacseq | 4 | 163 | 4 | 35 | 19 | 61/73 |
-| chipseq | 3 | 173 | 5 | 23 | 18 | 55/65 |
-| differentialabundance | 2 | 157 | 9 | 51 | 19 | 41/52 |
-| fetchngs | 2 | 96 | 2 | 19 | 8 | 33/38 |
-| mag | 4 | 131 | 16 | 56 | 16 | 39/62 |
-| methylseq | 5 | 161 | 13 | 56 | 21 | 50/66 |
-| rnaseq | 6 | 185 | 19 | 61 | 25 | 68/89 |
+| ampliseq | 5 | 244 | 17 | 36 | 25 | 81/94 |
+| atacseq | 4 | 189 | 5 | 37 | 19 | 63/74 |
+| chipseq | 3 | 201 | 5 | 24 | 18 | 56/66 |
+| differentialabundance | 2 | 181 | 9 | 49 | 19 | 41/54 |
+| fetchngs | 2 | 110 | 3 | 19 | 8 | 33/39 |
+| mag | 4 | 157 | 25 | 50 | 16 | 40/65 |
+| methylseq | 5 | 186 | 19 | 54 | 21 | 51/69 |
+| rnaseq | 6 | 209 | 28 | 60 | 25 | 69/91 |
 | sarek | 1 | 0 | 0 | 0 | 0 | 0/0 |
-| scrnaseq | 5 | 209 | 6 | 25 | 22 | 84/94 |
-| taxprofiler | 6 | 178 | 18 | 70 | 24 | 69/90 |
-| **Total** | **43** | **1665** | **105** | **436** | **197** | **578/721** |
+| scrnaseq | 5 | 237 | 6 | 29 | 22 | 82/95 |
+| taxprofiler | 6 | 208 | 29 | 61 | 24 | 71/95 |
+| **Total** | **43** | **1922** | **146** | **419** | **197** | **587/742** |
 
-- **80% of template changes apply automatically** (1770 of 2206 text
+- **83% of template changes apply automatically** (2068 of 2487 text
   operations applied or already present).
-- **80% of the files nf-migrate changes match the human merge** (578 of
-  721).
-- **5 of 40 merges would have gone through with no conflict**, all of them
-  the small 4.0.2 → 4.0.3 release. Three more merges re-synced a version
-  the pipeline was already on (sarek and mag at 4.1.0, methylseq at
-  3.5.1); they have nothing to apply and are left out of that count.
+- **79% of the files nf-migrate changes match the human merge** (587 of
+  742).
+- **8 of 40 merges would have gone through with no conflict.** Three more
+  merges re-synced a version the pipeline was already on (sarek and mag at
+  4.1.0, methylseq at 3.5.1); they have nothing to apply and are left out
+  of that count.
 
 So nf-migrate does most of a template update by itself, but nearly every
-real merge still has a few conflicts for a maintainer. Because a release is
-applied all-or-nothing, those few conflicts currently block the whole
-release; see [Limits](#limits).
+real merge still has a few conflicts for a maintainer. By default a release
+is applied all-or-nothing, so those few conflicts block the whole release;
+`--allow-conflicts` applies everything that fits and lists the rest.
+
+**Changes since 0.1.0.** 0.1.0 kept at least one line of context around
+every template change, so a one-line change such as the README's template
+version badge conflicted whenever a pipeline had edited a neighbouring
+line. 0.2.0 drops the context for replacements whose changed lines are
+unique. That raised automatic changes from 80% to 83% and clean merges
+from 5 to 8 of 40. Some conflicts now count more than once: a change that
+was one operation can become several smaller ones, which is why
+`workflows/<name>.nf` went from 110 to 129 conflicts.
 
 ## Where the conflicts are
 
 | Conflicts | File |
 |---|---|
-| 110 | `workflows/<name>.nf` |
+| 129 | `workflows/<name>.nf` |
 | 54 | `subworkflows/local/utils_nfcore_<name>_pipeline/main.nf` |
-| 53 | `README.md` |
-| 41 | `nextflow.config` |
-| 35 | `.github/workflows/nf-test.yml` |
-| 21 | `tests/default.nf.test` |
+| 37 | `nextflow.config` |
+| 37 | `README.md` |
+| 32 | `.github/workflows/nf-test.yml` |
+| 27 | `tests/default.nf.test` |
 | 19 | `main.nf` |
-| 18 | `.github/workflows/awsfulltest.yml` |
-| 14 | `tests/.nftignore` |
-| 10 | `tests/nextflow.config` |
-| 7 | `.github/workflows/release-announcements.yml` |
-| 7 | `.github/actions/nf-test/action.yml` |
+| 12 | `tests/.nftignore` |
+| 9 | `.github/actions/nf-test/action.yml` |
+| 8 | `.github/workflows/awsfulltest.yml` |
+| 7 | `tests/nextflow.config` |
 | 6 | `nf-test.config` |
 | 6 | `nextflow_schema.json` |
+| 6 | `conf/igenomes.config` |
 | 6 | `assets/schema_input.json` |
 
 Most conflicts are in code the pipeline owns, where the maintainers had to
 decide too:
 
-- **`workflows/<name>.nf`** (110). The template edits its example workflow
+- **`workflows/<name>.nf`** (129). The template edits its example workflow
   body — the FastQC block, the MultiQC wiring — which real pipelines
-  replace entirely. 28 of these are pipelines whose main workflow has a
+  replace entirely. 36 of these are pipelines whose main workflow has a
   different file name.
 - **The local utils subworkflow, README, `nextflow.config`, `main.nf` and
   tests** hold pipeline-specific code and text next to template code.
@@ -121,16 +130,20 @@ version, so patching their files as text could not match.
 
 `nf-migrate detect` works out the template version from the files instead
 of trusting `nf_core_version`. On the 43 pre-merge snapshots it agreed with
-the stamp 41 times:
+the stamp 39 times:
 
 | Pipeline | Snapshot | Stamped | Detected | Why |
 |---|---|---|---|---|
-| chipseq | `2270251` | 3.5.2 | 3.5.1 | 3.5.2 changes one line, so there is almost no evidence either way. |
-| rnaseq | `38979633` | 4.0.2 | 4.0.3 | rnaseq had taken 7 of the 4.0.3 changes early; 6 were still missing. |
+| chipseq | `2270251` | 3.5.2 | 3.5.1 | 3.5.2 changes little more than the README's template version badge, and the badge still says 3.5.1. |
+| mag | `1e050746` | 3.5.2 | 3.5.1 | Same as chipseq: the badge still says 3.5.1. |
+| rnaseq | `38979633` | 4.0.2 | 4.0.3 | rnaseq had taken most of the 4.0.3 changes early; some were still missing. |
+| taxprofiler | `9a8cef2` | 4.0.2 | 4.0.3 | 14 of the 4.0.3 changes were already there; 7 were still missing. |
 
-The rnaseq case is why `--detect` only ever starts an upgrade *earlier*
-than the stamp: starting at 4.0.3 would have skipped the 6 missing changes,
-while re-running a release that is already applied is harmless.
+The rnaseq and taxprofiler cases are why `--detect` only ever starts an
+upgrade *earlier* than the stamp: starting at 4.0.3 would have skipped the
+changes still missing, while re-running a release that is already applied
+is harmless. In the chipseq and mag cases the files and the stamp disagree
+only about the badge.
 
 Outside this set, nf-core/spatialaxe shows what detection is for. Its
 `dev` (`origin/dev` on 2026-10-15) is stamped 4.0.3, but it reverted the
@@ -139,11 +152,11 @@ Outside this set, nf-core/spatialaxe shows what detection is for. Its
 
 | Start from | Applied | Already applied | Conflict | Manual step |
 |---|---|---|---|---|
-| the stamp, 4.0.3 | 15 | 2 | 20 | 4 |
-| the detected version, 3.5.2 | 83 | 30 | 40 | 13 |
+| the stamp, 4.0.3 | 17 | 2 | 21 | 4 |
+| the detected version, 3.5.2 | 90 | 40 | 41 | 13 |
 
 From the stamp, the 4.0.x template changes spatialaxe lacks would be
-skipped for good; from the detected version 68 more of them are applied,
+skipped for good; from the detected version 73 more of them are applied,
 at the cost of more conflicts. That trade-off is why detection is opt-in
 (`--detect`, or the action's `detect-version`), while the report warns
 about a mismatch either way.
@@ -160,10 +173,14 @@ Six merges fall outside the chain and were not evaluated:
 
 ## Limits
 
-- **All-or-nothing releases.** One conflict blocks a whole release, so
-  the 80% that applies cleanly is not written until the conflicts are
-  resolved. Applying what fits and leaving conflict markers would turn
-  most of these merges into partial, reviewable progress.
+- **All-or-nothing releases by default.** One conflict blocks a whole
+  release. `--allow-conflicts` writes everything that fits instead, but
+  leaves any file with a conflict untouched as a whole, so the report, not
+  conflict markers, shows what is left.
+- **Dependencies between changes.** A text change can rely on a module or
+  subworkflow update that nf-migrate only reports as a manual step: in
+  4.1.0 the local utils subworkflow passes a new argument that only the
+  updated `utils_nfschema_plugin` accepts.
 - **Renamed main workflow.** Operations on `workflows/<name>.nf` fail
   outright when a pipeline names its main workflow differently.
 - **Skipped template features.** The chain is rendered with every template
