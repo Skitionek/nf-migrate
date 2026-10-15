@@ -1,0 +1,203 @@
+name: nf-migrate
+description: >-
+  Resolve nf-core template sync PRs with migrations instead of a git merge
+  and report what is left to do.
+author: Skitionek
+branding:
+  icon: git-merge
+  color: green
+
+inputs:
+  github-token:
+    description: >-
+      Token used to comment on the PR. The push uses the credentials
+      actions/checkout stored, so give checkout the same token.
+    default: ${{ github.token }}
+  bot-login:
+    description: >-
+      On pull_request events, only PRs opened by this account are handled.
+      Manual dispatch skips this check.
+    default: nf-core-bot
+  pr-number:
+    description: >-
+      On workflow_dispatch, the template sync PR to resolve. Empty picks the
+      newest open PR from an nf-core-template-merge-* branch.
+    default: ""
+  push:
+    description: Push the merge commit to the PR branch when no step conflicts.
+    default: "true"
+  comment:
+    description: Comment the migration report on the PR.
+    default: "true"
+
+outputs:
+  status:
+    description: >-
+      resolved, conflicts, or skipped (not a template sync PR, or already
+      resolved).
+    value: ${{ steps.result.outputs.status }}
+  commit:
+    description: The merge commit, when every migration applied.
+    value: ${{ steps.merge.outputs.commit }}
+  pr-number:
+    description: The template sync PR that was handled.
+    value: ${{ steps.guard.outputs.pr-number }}
+
+runs:
+  using: composite
+  steps:
+    - name: Find the template sync PR
+      id: guard
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        GH_REPO: ${{ github.repository }}
+        EVENT_NAME: ${{ github.event_name }}
+        EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+        EVENT_PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        BOT_LOGIN: ${{ inputs.bot-login }}
+        INPUT_PR_NUMBER: ${{ inputs.pr-number }}
+      run: |
+        skip() {
+          echo "::notice title=nf-migrate::$1"
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        }
+
+        case "$EVENT_NAME" in
+          pull_request)
+            if [ "$EVENT_PR_AUTHOR" != "$BOT_LOGIN" ]; then
+              skip "PR opened by $EVENT_PR_AUTHOR, not $BOT_LOGIN"
+            fi
+            pr_number=$EVENT_PR_NUMBER
+            ;;
+          workflow_dispatch)
+            # Run by hand on purpose, so any author is fine, including a
+            # maintainer who ran `nf-core pipelines sync` locally.
+            pr_number=$INPUT_PR_NUMBER
+            if [ -z "$pr_number" ]; then
+              pr_number=$(gh pr list --state open --limit 100 \
+                --json number,headRefName \
+                --jq '[.[] | select(.headRefName
+                  | startswith("nf-core-template-merge-"))][0].number // empty')
+            fi
+            if [ -z "$pr_number" ]; then
+              skip "no open template sync PR"
+            fi
+            ;;
+          *)
+            skip "runs on pull_request and workflow_dispatch, not $EVENT_NAME"
+            ;;
+        esac
+
+        pr=$(gh pr view "$pr_number" \
+          --json baseRefName,headRefName,isCrossRepository)
+        base_ref=$(jq -r .baseRefName <<< "$pr")
+        head_ref=$(jq -r .headRefName <<< "$pr")
+        if [ "$(jq -r .isCrossRepository <<< "$pr")" = "true" ]; then
+          skip "PR #$pr_number comes from a fork; its branch cannot be pushed"
+        fi
+        case "$head_ref" in
+          nf-core-template-merge-*) ;;
+          *) skip "$head_ref is not a template sync branch" ;;
+        esac
+
+        git fetch --no-tags origin \
+          "+refs/heads/$base_ref:refs/remotes/origin/$base_ref" \
+          "+refs/heads/$head_ref:refs/remotes/origin/$head_ref"
+        if git merge-base --is-ancestor \
+            "origin/$base_ref" "origin/$head_ref"; then
+          skip "$head_ref already contains $base_ref"
+        fi
+
+        {
+          echo "skip=false"
+          echo "pr-number=$pr_number"
+          echo "base-ref=$base_ref"
+          echo "head-ref=$head_ref"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Set up uv
+      if: steps.guard.outputs.skip == 'false'
+      uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+
+    - name: Apply migrations
+      id: merge
+      if: steps.guard.outputs.skip == 'false'
+      shell: bash
+      env:
+        BASE_REF: ${{ steps.guard.outputs.base-ref }}
+        HEAD_REF: ${{ steps.guard.outputs.head-ref }}
+        REPORT_FILE: ${{ runner.temp }}/nf-migrate-report.md
+        GIT_AUTHOR_NAME: github-actions[bot]
+        GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        GIT_COMMITTER_NAME: github-actions[bot]
+        GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+      run: |
+        # Exit code 1 means a migration conflicted; anything else is an error.
+        set +e
+        commit=$(uvx --from "$GITHUB_ACTION_PATH" nf-migrate merge-template \
+          --repo . --report-file "$REPORT_FILE" \
+          "origin/$BASE_REF" "origin/$HEAD_REF")
+        exit_code=$?
+        set -e
+        if [ "$exit_code" -gt 1 ]; then
+          exit "$exit_code"
+        fi
+        echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+    - name: Push the resolution to the PR branch
+      if: >-
+        steps.guard.outputs.skip == 'false'
+        && steps.merge.outputs.commit != ''
+        && inputs.push == 'true'
+      shell: bash
+      env:
+        COMMIT: ${{ steps.merge.outputs.commit }}
+        HEAD_REF: ${{ steps.guard.outputs.head-ref }}
+      run: |
+        # Uses the credentials actions/checkout stored. The PR branch tip
+        # is a parent of the merge commit, so this is a fast-forward.
+        git push origin "$COMMIT:refs/heads/$HEAD_REF"
+
+    - name: Record the result
+      id: result
+      shell: bash
+      env:
+        SKIP: ${{ steps.guard.outputs.skip }}
+        COMMIT: ${{ steps.merge.outputs.commit }}
+      run: |
+        if [ "$SKIP" != "false" ]; then
+          echo "status=skipped" >> "$GITHUB_OUTPUT"
+        elif [ -n "$COMMIT" ]; then
+          echo "status=resolved" >> "$GITHUB_OUTPUT"
+        else
+          echo "status=conflicts" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Comment the report on the PR
+      if: steps.guard.outputs.skip == 'false' && inputs.comment == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        GH_REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ steps.guard.outputs.pr-number }}
+        REPORT_FILE: ${{ runner.temp }}/nf-migrate-report.md
+        STATUS: ${{ steps.result.outputs.status }}
+        PUSH: ${{ inputs.push }}
+        COMMIT: ${{ steps.merge.outputs.commit }}
+      run: |
+        {
+          cat "$REPORT_FILE"
+          echo
+          if [ "$STATUS" = "resolved" ] && [ "$PUSH" = "true" ]; then
+            echo "Every migration applied; pushed merge commit $COMMIT."
+            echo "Work through the manual steps above before merging."
+          elif [ "$STATUS" = "resolved" ]; then
+            echo "Every migration applied; merge commit $COMMIT was not pushed."
+          else
+            echo "A migration conflicted, so nothing was pushed. Resolve the"
+            echo "conflicts above by hand, or merge as usual."
+          fi
+        } > "$RUNNER_TEMP/nf-migrate-comment.md"
+        gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/nf-migrate-comment.md"

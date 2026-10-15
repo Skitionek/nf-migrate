@@ -55,6 +55,25 @@ class UpgradeReport:
                     lines.append(f"  {label} {result.path}: {result.message}")
         return "\n".join(lines)
 
+    def render_markdown(self) -> str:
+        """The report as a PR comment: conflicts, then manual steps."""
+        lines: list[str] = []
+        for migration in self.migrations:
+            counts = {outcome: 0 for outcome in Outcome}
+            for result in migration.results:
+                counts[result.outcome] += 1
+            summary = ", ".join(
+                f"{count} {outcome.value}" for outcome, count in counts.items()
+            )
+            lines.append(f"#### {migration.revision}\n\n{summary}\n")
+            for result in migration.results:
+                if result.outcome is Outcome.CONFLICT:
+                    lines.append(f"- :x: `{result.path}`: {result.message}")
+                elif result.outcome is Outcome.MANUAL:
+                    lines.append(f"- [ ] `{result.path}`: {result.message}")
+            lines.append("")
+        return "\n".join(lines)
+
 
 def upgrade(
     project: Path,

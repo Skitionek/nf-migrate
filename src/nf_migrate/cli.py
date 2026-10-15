@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from nf_migrate.autogenerate import generate_migration
+from nf_migrate.merge_template import merge_template
 from nf_migrate.migrations import MigrationError, load_migrations
 from nf_migrate.runner import upgrade
 from nf_migrate.variables import TemplateVariableError
@@ -68,7 +69,36 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     revision.set_defaults(handler=_revision)
 
+    merge = commands.add_parser(
+        "merge-template",
+        help="resolve a template sync PR: upgrade BASE to HEAD's version "
+        "and print a merge commit of both",
+    )
+    merge.add_argument("base", help="branch the PR targets, e.g. origin/dev")
+    merge.add_argument("head", help="the PR's template branch")
+    merge.add_argument("--repo", type=Path, default=Path("."))
+    merge.add_argument(
+        "--report-file", type=Path, help="write the Markdown report here"
+    )
+    merge.set_defaults(handler=_merge_template)
+
     return parser
+
+
+def _merge_template(arguments: argparse.Namespace) -> int:
+    result = merge_template(
+        arguments.repo,
+        arguments.base,
+        arguments.head,
+        arguments.migrations,
+    )
+    if arguments.report_file is not None:
+        arguments.report_file.write_text(result.render_markdown())
+    print(result.report.render() or "already up to date", file=sys.stderr)
+    if result.commit is None:
+        return 1
+    print(result.commit)
+    return 0
 
 
 def _current(arguments: argparse.Namespace) -> int:

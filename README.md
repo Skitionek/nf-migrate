@@ -36,6 +36,66 @@ nf-migrate --project path/to/pipeline upgrade --dry-run
 nf-migrate --project path/to/pipeline upgrade
 ```
 
+## GitHub Action
+
+Add this workflow to a pipeline repository. When nf-core-bot opens a
+template sync PR, or when you run the workflow by hand, the action upgrades
+the PR's base branch with the migrations, and if no step conflicts, pushes
+the result to the PR branch as a merge of the base and the template commit.
+It always comments the report on the PR, with manual steps
+(`nf-core modules update ...`) as a checklist.
+
+```yaml
+# .github/workflows/nf-migrate.yml
+name: nf-migrate
+on:
+  pull_request:
+    types: [opened, reopened]
+  workflow_dispatch:
+    inputs:
+      pr-number:
+        description: Template sync PR to resolve (empty = newest open one)
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  resolve-template-sync:
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.event.pull_request.user.login == 'nf-core-bot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # A conflicting PR has no merge ref, so check out its branch.
+          # Empty on workflow_dispatch, which checks out the default branch.
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - uses: Skitionek/nf-migrate@main
+        with:
+          pr-number: ${{ inputs.pr-number }}
+```
+
+Run it by hand from the Actions tab or with
+`gh workflow run nf-migrate.yml -f pr-number=123`. A manual run handles a
+sync PR from any author, for example one a maintainer opened after running
+`nf-core pipelines sync` locally; PRs from forks are skipped because their
+branch cannot be pushed. Either way, a PR whose branch already contains its
+base is left alone, so work a maintainer already merged in is never
+overwritten.
+
+Inputs: `github-token` (default `github.token`), `bot-login` (default
+`nf-core-bot`, checked on PR events only), `pr-number` (manual runs),
+`push` and `comment` (both default `true`). Outputs: `status` (`resolved`,
+`conflicts` or `skipped`), `commit` and `pr-number`.
+
+The push uses the credentials `actions/checkout` stored. Pushes made with
+the default `GITHUB_TOKEN` do not start other workflows, so to run CI on
+the resolved PR, give checkout a PAT or GitHub App token instead.
+
 ## Adding a migration for a new tools release
 
 ```bash
