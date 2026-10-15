@@ -1,0 +1,13 @@
+# Template settings for rendering pipeline-independent migrations. Every
+# value is a placeholder that `nf-migrate revision` turns back into a
+# {{variable}}, so it must not occur in the template on its own.
+repository_type: pipeline
+template:
+  author: Sentinel Author
+  description: Sentinel pipeline description
+  force: false
+  is_nfcore: true
+  name: sentinelpipe
+  org: nf-core
+  outdir: .
+  version: 7.7.7dev

@@ -1,0 +1,29 @@
+[project]
+name = "nf-migrate"
+version = "0.1.0"
+description = "Alembic-style, upgrade-only migrations for nf-core template updates"
+requires-python = ">=3.12"
+dependencies = [
+    "pyyaml>=6.0.3",
+]
+
+[project.scripts]
+nf-migrate = "nf_migrate.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-xdist>=3", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 80
+# Generated migrations hold template text that must stay byte-exact.
+extend-exclude = ["src/nf_migrate/nf_core_migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
