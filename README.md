@@ -129,8 +129,10 @@ the resolved PR, give checkout a PAT or GitHub App token instead.
 
 `merge-template --lint-fix` follows the merge commit with two commits from
 `nf-core pipelines lint --fix`: one for the files nf-core can restore
-(action pins, logos, RO-Crate), one for the regenerated container configs.
-It needs the `nf-core` command and prints the last commit.
+(action pins, RO-Crate), one for the regenerated container configs. It runs
+the nf-core release of the template through `uvx`, because CI lints with that
+release, and puts back the logos of the template branch, which nf-core would
+redraw. It prints the last commit.
 
 ## Pipelines older than nf-core/tools 3.0
 
