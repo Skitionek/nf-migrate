@@ -206,3 +206,23 @@ def test_allow_conflicts_still_creates_the_merge_commit(
     assert git(repo, "show", f"{result.commit}:.nf-core.yml") == (
         "nf_core_version: 3.3.1"
     )
+
+
+def test_unstamped_base_upgrades_from_the_detected_version(
+    repo: Path, migrations_dir: Path
+) -> None:
+    # Given dev from before nf-core/tools wrote .nf-core.yml
+    git(repo, "rm", "-q", ".nf-core.yml")
+    git(repo, "commit", "-q", "-m", "no .nf-core.yml")
+
+    # When
+    result = merge_template(repo, "dev", "TEMPLATE", migrations_dir)
+
+    # Then
+    assert result.report.succeeded
+    assert result.start_version == "3.2.1"
+    assert git(repo, "show", f"{result.commit}:base.config") == (
+        "retry = 104 + 175"
+    )
+    markdown = result.render_markdown()
+    assert "has no `nf_core_version`" in markdown

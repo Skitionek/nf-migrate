@@ -202,3 +202,35 @@ def test_cli_upgrade_with_detect_applies_the_missing_release(
     assert exit_code == 0
     assert (project / "b.txt").read_text() == "b new\n"
     assert read_version(project) == "3.5.0"
+
+
+# Pipelines without nf_core_version
+def test_cli_upgrade_starts_from_the_detected_version_without_a_stamp(
+    tmp_path: Path, chain: list, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Given a pipeline from before nf-core/tools wrote .nf-core.yml
+    project = tmp_path / "pipeline"
+    project.mkdir()
+    (project / "a.txt").write_text("a new\n")
+    (project / "b.txt").write_text("b old\n")
+    (project / "c.txt").write_text("c old\n")
+    migrations_dir = chain[0].source.parent
+
+    # When
+    exit_code = main(
+        [
+            "--project",
+            str(project),
+            "--migrations",
+            str(migrations_dir),
+            "upgrade",
+        ]
+    )
+
+    # Then
+    assert exit_code == 0
+    assert (project / "b.txt").read_text() == "b new\n"
+    assert (project / "c.txt").read_text() == "c new\n"
+    assert read_version(project) == "3.5.0"
+    stderr = capsys.readouterr().err
+    assert "no nf_core_version; files look like 3.3.1" in stderr

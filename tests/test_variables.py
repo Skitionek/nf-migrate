@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from nf_migrate.variables import (
     expand,
+    pipeline_variables,
     template_variables,
     templatize,
 )
@@ -53,3 +56,81 @@ def test_templatize_and_expand_round_trip_between_pipelines() -> None:
         "include { {{PIPELINE_NAME}} } from './workflows/{{pipeline_name}}'\n"
     )
     assert expanded == "include { RNASEQ } from './workflows/rnaseq'\n"
+
+
+# Pipelines from before nf-core/tools 3.0
+NEXTFLOW_CONFIG = """\
+params {
+  name = false
+}
+
+manifest {
+  name = 'nf-core/slamseq'
+  author = 'Tobias Neumann'
+  homePage = 'https://github.com/nf-core/slamseq'
+  description = "SLAMSeq processing and analysis pipeline"
+  version = '1.0.0'
+}
+"""
+
+
+def test_variables_come_from_the_manifest_without_a_template_section(
+    tmp_path: Path,
+) -> None:
+    # Given
+    (tmp_path / ".nf-core.yml").write_text("repository_type: pipeline\n")
+    (tmp_path / "nextflow.config").write_text(NEXTFLOW_CONFIG)
+
+    # When
+    variables = pipeline_variables(tmp_path)
+
+    # Then
+    assert variables == {
+        "pipeline_name": "slamseq",
+        "PIPELINE_NAME": "SLAMSEQ",
+        "pipeline_author": "Tobias Neumann",
+        "pipeline_description": "SLAMSeq processing and analysis pipeline",
+        "pipeline_version": "1.0.0",
+    }
+
+
+def test_variables_come_from_the_manifest_without_nf_core_yml(
+    tmp_path: Path,
+) -> None:
+    # Given
+    (tmp_path / "nextflow.config").write_text(NEXTFLOW_CONFIG)
+
+    # When
+    variables = pipeline_variables(tmp_path)
+
+    # Then
+    assert variables["pipeline_name"] == "slamseq"
+
+
+def test_the_template_section_wins_over_the_manifest(tmp_path: Path) -> None:
+    # Given
+    (tmp_path / ".nf-core.yml").write_text(NF_CORE_YML)
+    (tmp_path / "nextflow.config").write_text(NEXTFLOW_CONFIG)
+
+    # When
+    variables = pipeline_variables(tmp_path)
+
+    # Then
+    assert variables["pipeline_name"] == "rnaseq"
+    assert variables["pipeline_version"] == "3.28.0dev"
+
+
+def test_manifest_values_may_use_triple_quotes(tmp_path: Path) -> None:
+    # Given a manifest as nf-core/tools 2.7 renders it
+    (tmp_path / "nextflow.config").write_text(
+        "manifest {\n"
+        "    name            = 'nf-core/hgtseq'\n"
+        '    description     = """A pipeline to investigate HGT"""\n'
+        "}\n"
+    )
+
+    # When
+    variables = pipeline_variables(tmp_path)
+
+    # Then
+    assert variables["pipeline_description"] == "A pipeline to investigate HGT"

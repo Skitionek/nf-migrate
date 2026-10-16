@@ -13,7 +13,8 @@ from pathlib import Path
 
 from nf_migrate.migrations import Migration
 from nf_migrate.operations import Outcome, Workspace
-from nf_migrate.variables import template_variables
+from nf_migrate.runner import stamp_workspace
+from nf_migrate.variables import pipeline_variables
 from nf_migrate.version import NF_CORE_YML, read_version
 
 
@@ -60,7 +61,7 @@ def detect_version(project: Path, chain: list[Migration]) -> Detection:
     if not chain:
         raise ValueError("cannot detect a version without migrations")
 
-    variables = template_variables((project / NF_CORE_YML).read_text())
+    variables = pipeline_variables(project)
     evidence = [
         _migration_evidence(project, variables, migration)
         for migration in chain
@@ -102,6 +103,7 @@ def _migration_evidence(
     # A fresh workspace per migration: each is checked against the files as
     # they are on disk, not as earlier migrations would leave them.
     workspace = Workspace(project, variables)
+    stamp_workspace(workspace, migration.revision)
     counts = {outcome: 0 for outcome in Outcome}
     for operation in migration.operations:
         result = operation.apply(workspace)

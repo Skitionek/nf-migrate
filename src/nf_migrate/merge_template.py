@@ -30,7 +30,15 @@ class MergeResult:
 
     def render_markdown(self) -> str:
         lines = [f"### nf-migrate: template {self.target_version}", ""]
-        if not self.detection.matches_stamp:
+        if self.detection.stamped is None:
+            lines.append(
+                f"> [!NOTE]\n"
+                f"> The base branch has no `nf_core_version`; its files look "
+                f"like template {self.detection.version}. Upgraded from "
+                f"{self.start_version}."
+            )
+            lines.append("")
+        elif not self.detection.matches_stamp:
             lines.append(
                 f"> [!WARNING]\n"
                 f"> `nf_core_version` says {self.detection.stamped}, but the "
@@ -80,7 +88,11 @@ def merge_template(
         )
         try:
             detection = detect_version(worktree, chain)
-            start_version = detection.upgrade_from if detect else None
+            # Pipelines from before nf-core/tools 3.0 have no stamp.
+            is_unstamped = detection.stamped is None
+            start_version = None
+            if detect or is_unstamped:
+                start_version = detection.upgrade_from
             report = upgrade(
                 worktree,
                 chain,
