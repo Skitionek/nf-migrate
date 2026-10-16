@@ -3,6 +3,7 @@ from pathlib import Path
 from nf_migrate.operations import (
     CreateFile,
     DeleteFile,
+    JsonEdit,
     Outcome,
     Replace,
     Workspace,
@@ -262,6 +263,140 @@ def test_a_deletion_is_not_taken_as_applied_from_its_anchor_alone(
     # Then
     assert result.outcome is Outcome.CONFLICT
     assert workspace.read("main.nf") == content
+
+
+# JsonEdit
+PIPELINE_SCHEMA = """\
+{
+    "properties": {
+        "my_param": {
+            "type": "integer"
+        },
+        "igenomes_base": {
+            "type": "string",
+            "format": "directory-path",
+            "description": "The base path to the igenomes reference files"
+        }
+    }
+}
+"""
+
+
+def test_json_edit_removes_a_key_whatever_its_neighbours(
+    tmp_path: Path,
+) -> None:
+    # Given a schema with a property the template does not have
+    workspace = make_workspace(tmp_path, {"schema.json": PIPELINE_SCHEMA})
+    operation = JsonEdit(
+        "schema.json",
+        ["properties", "igenomes_base", "format"],
+        old='"directory-path"',
+        new=None,
+    )
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.APPLIED
+    assert workspace.read("schema.json") == PIPELINE_SCHEMA.replace(
+        '            "format": "directory-path",\n', ""
+    )
+
+
+def test_json_edit_is_already_applied_when_the_value_is_new(
+    tmp_path: Path,
+) -> None:
+    # Given
+    workspace = make_workspace(tmp_path, {"schema.json": PIPELINE_SCHEMA})
+    operation = JsonEdit(
+        "schema.json",
+        ["properties", "my_param", "type"],
+        old='"string"',
+        new='"integer"',
+    )
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.ALREADY_APPLIED
+    assert workspace.read("schema.json") == PIPELINE_SCHEMA
+
+
+def test_json_edit_conflicts_when_the_pipeline_changed_the_value(
+    tmp_path: Path,
+) -> None:
+    # Given
+    workspace = make_workspace(tmp_path, {"schema.json": PIPELINE_SCHEMA})
+    operation = JsonEdit(
+        "schema.json",
+        ["properties", "my_param", "type"],
+        old='"string"',
+        new='"boolean"',
+    )
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.CONFLICT
+    assert '"boolean"' in result.suggestion
+
+
+def test_json_edit_adds_a_member_after_its_template_sibling(
+    tmp_path: Path,
+) -> None:
+    # Given
+    workspace = make_workspace(tmp_path, {"schema.json": PIPELINE_SCHEMA})
+    operation = JsonEdit(
+        "schema.json",
+        ["properties", "{{pipeline_name}}_mode"],
+        old=None,
+        new='{\n    "type": "string"\n}',
+        after="my_param",
+    )
+    workspace.variables = {"pipeline_name": "rnaseq"}
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.APPLIED
+    assert (
+        "        },\n"
+        '        "rnaseq_mode": {\n'
+        '            "type": "string"\n'
+        "        },\n"
+        '        "igenomes_base": {'
+    ) in workspace.read("schema.json")
+
+
+def test_json_edit_falls_back_to_its_text_hunk_when_the_path_is_missing(
+    tmp_path: Path,
+) -> None:
+    # Given a samplesheet schema whose property the pipeline renamed
+    schema = (
+        '{\n    "properties": {\n        "reads": {\n'
+        '            "pattern": "^\\\\S+$",\n'
+        '            "errorMessage": "reads 1"\n        }\n    }\n}\n'
+    )
+    workspace = make_workspace(tmp_path, {"schema.json": schema})
+    operation = JsonEdit(
+        "schema.json",
+        ["properties", "fastq_1", "pattern"],
+        old='"^\\\\S+$"',
+        new='"^\\\\S+\\\\.gz$"',
+        fallback_old='            "pattern": "^\\\\S+$",\n',
+        fallback_new='            "pattern": "^\\\\S+\\\\.gz$",\n',
+    )
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.APPLIED
+    assert '"pattern": "^\\\\S+\\\\.gz$"' in workspace.read("schema.json")
 
 
 # CreateFile

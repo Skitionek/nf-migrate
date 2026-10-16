@@ -401,6 +401,140 @@ def test_legacy_render_metadata_stays_out_of_the_migration(
     )
 
 
+# JSON files
+SCHEMA_OLD = """\
+{
+    "properties": {
+        "igenomes_base": {
+            "type": "string",
+            "format": "directory-path"
+        },
+        "hook_url": {
+            "type": "string"
+        },
+        "multiqc_config": {
+            "type": "string"
+        }
+    }
+}
+"""
+SCHEMA_NEW = """\
+{
+    "properties": {
+        "igenomes_base": {
+            "type": "string"
+        },
+        "multiqc_config": {
+            "type": "string"
+        },
+        "trace_report_suffix": {
+            "type": "string"
+        }
+    }
+}
+"""
+
+
+def test_json_changes_apply_by_key_beside_pipeline_parameters(
+    tmp_path: Path,
+) -> None:
+    # Given a template release that edits, removes and adds properties
+    template_repo = tmp_path / "template"
+    template_repo.mkdir()
+    git(template_repo, "init", "-q")
+    git(template_repo, "config", "user.email", "t@example.com")
+    git(template_repo, "config", "user.name", "t")
+    old_ref = commit_files(
+        template_repo,
+        {".nf-core.yml": "nf_core_version: 3.2.1\n", "schema.json": SCHEMA_OLD},
+    )
+    new_ref = commit_files(
+        template_repo,
+        {".nf-core.yml": "nf_core_version: 3.3.1\n", "schema.json": SCHEMA_NEW},
+    )
+
+    # And a pipeline that added its own parameter between them
+    pipeline_schema = SCHEMA_OLD.replace(
+        '        "hook_url": {',
+        '        "my_param": {\n            "type": "integer"\n        },\n'
+        '        "hook_url": {',
+    )
+    pipeline = tmp_path / "pipeline"
+    pipeline.mkdir()
+    (pipeline / ".nf-core.yml").write_text("nf_core_version: 3.2.1\n")
+    (pipeline / "schema.json").write_text(pipeline_schema)
+
+    # When
+    generated = generate_migration(template_repo, old_ref, new_ref)
+    migrations_dir = tmp_path / "migrations"
+    migrations_dir.mkdir()
+    (migrations_dir / "v3_3_1.py").write_text(generated.source)
+    report = upgrade(pipeline, load_migrations(migrations_dir), target="head")
+
+    # Then
+    assert "JsonEdit(" in generated.source
+    assert report.succeeded, report.render()
+    expected = SCHEMA_NEW.replace(
+        '        "multiqc_config": {',
+        '        "my_param": {\n            "type": "integer"\n        },\n'
+        '        "multiqc_config": {',
+    )
+    assert (pipeline / "schema.json").read_text() == expected
+
+
+def test_json_changes_fall_back_to_text_where_the_pipeline_renamed_keys(
+    tmp_path: Path,
+) -> None:
+    # Given a template release that changes a property's pattern
+    template_repo = tmp_path / "template"
+    template_repo.mkdir()
+    git(template_repo, "init", "-q")
+    git(template_repo, "config", "user.email", "t@example.com")
+    git(template_repo, "config", "user.name", "t")
+    schema = (
+        '{{\n    "properties": {{\n        "fastq_1": {{\n'
+        '            "pattern": "{}",\n'
+        '            "errorMessage": "FastQ file for reads 1"\n'
+        "        }}\n    }}\n}}\n"
+    )
+    old_ref = commit_files(
+        template_repo,
+        {
+            ".nf-core.yml": "nf_core_version: 3.3.1\n",
+            "schema.json": schema.format("old"),
+        },
+    )
+    new_ref = commit_files(
+        template_repo,
+        {
+            ".nf-core.yml": "nf_core_version: 3.3.2\n",
+            "schema.json": schema.format("new"),
+        },
+    )
+
+    # And a pipeline that named the property differently
+    pipeline = tmp_path / "pipeline"
+    pipeline.mkdir()
+    (pipeline / ".nf-core.yml").write_text("nf_core_version: 3.3.1\n")
+    (pipeline / "schema.json").write_text(
+        schema.format("old").replace("fastq_1", "forward_reads")
+    )
+
+    # When
+    generated = generate_migration(template_repo, old_ref, new_ref)
+    migrations_dir = tmp_path / "migrations"
+    migrations_dir.mkdir()
+    (migrations_dir / "v3_3_2.py").write_text(generated.source)
+    report = upgrade(pipeline, load_migrations(migrations_dir), target="head")
+
+    # Then
+    assert "JsonEdit(" in generated.source
+    assert report.succeeded, report.render()
+    assert (pipeline / "schema.json").read_text() == (
+        schema.format("new").replace("fastq_1", "forward_reads")
+    )
+
+
 # Changes a release made by mistake
 def test_a_release_note_leaked_into_the_changelog_is_left_out(
     tmp_path: Path,

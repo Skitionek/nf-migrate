@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from nf_migrate import json_text
 from nf_migrate.variables import expand
 
 
@@ -386,6 +387,113 @@ def reindent(text: str, shift: int) -> str:
             removable = len(line) - len(line.lstrip(" "))
             lines.append(line[min(-shift, removable) :])
     return "".join(lines)
+
+
+@dataclass(frozen=True, slots=True)
+class JsonEdit:
+    """Set, add or remove the value at one key path of a JSON file.
+
+    Matches by keys, not by surrounding text, so it still applies when the
+    pipeline added, removed or reordered other members. `old` and `new`
+    are JSON text; None means the key is absent. A new value keeps the
+    template's formatting, indented to where it lands.
+
+    Where the pipeline lacks the key path, say because it renamed a
+    property, the template's text hunk over the same lines is tried
+    instead, so a JSON file never does worse than with text hunks alone.
+    """
+
+    path: str
+    pointer: list[str]
+    old: str | None
+    new: str | None
+    # The member to insert after when adding; the last one if missing.
+    after: str | None = None
+    fallback_old: str | None = None
+    fallback_new: str | None = None
+
+    def apply(self, workspace: Workspace) -> OperationResult:
+        path = workspace.expand(self.path)
+        pointer = [workspace.expand(key) for key in self.pointer]
+        old = None if self.old is None else workspace.expand(self.old)
+        new = None if self.new is None else workspace.expand(self.new)
+        after = None if self.after is None else workspace.expand(self.after)
+        change = _json_change(path, pointer, old, new)
+
+        content = workspace.read(path)
+        if content is None:
+            message = "file does not exist"
+            return OperationResult(path, Outcome.CONFLICT, message, change)
+        try:
+            document = json_text.parse(content)
+        except json_text.JsonTextError:
+            message = "file is not valid JSON"
+            return OperationResult(path, Outcome.CONFLICT, message, change)
+
+        member = json_text.find_member(document, pointer)
+        if len(pointer) == 1:
+            parent_node = document
+        else:
+            parent = json_text.find_member(document, pointer[:-1])
+            parent_node = parent.value if parent is not None else None
+        if parent_node is None or not parent_node.is_object:
+            message = f"no object at {'/'.join(pointer[:-1])}"
+            return self._fall_back(workspace, path, message, change)
+
+        current = _member_value(content, member)
+        if current == _parse_value(new):
+            return OperationResult(path, Outcome.ALREADY_APPLIED, "", change)
+        if member is None and old is not None:
+            message = f"no {'/'.join(pointer)} to change"
+            return self._fall_back(workspace, path, message, change)
+        if current != _parse_value(old):
+            message = f"{'/'.join(pointer)} has a different value"
+            return OperationResult(path, Outcome.CONFLICT, message, change)
+
+        if new is None:
+            content = json_text.delete_member(content, document, member)
+        elif member is None:
+            content = json_text.insert_member(
+                content, parent_node, pointer[-1], new, after
+            )
+        else:
+            content = json_text.replace_value(content, member, new)
+        workspace.write(path, content)
+        return OperationResult(path, Outcome.APPLIED, "", change)
+
+    def _fall_back(
+        self, workspace: Workspace, path: str, message: str, change: str
+    ) -> OperationResult:
+        if self.fallback_old is None:
+            return OperationResult(path, Outcome.CONFLICT, message, change)
+        hunk = Replace(self.path, self.fallback_old, self.fallback_new or "")
+        return hunk.apply(workspace)
+
+
+# Stands for a missing key when comparing values; JSON has no such value.
+_ABSENT = object()
+
+
+def _parse_value(value_text: str | None) -> object:
+    if value_text is None:
+        return _ABSENT
+    return json.loads(value_text)
+
+
+def _member_value(content: str, member: json_text.Member | None) -> object:
+    if member is None:
+        return _ABSENT
+    return json.loads(content[member.value.start : member.value.end])
+
+
+def _json_change(
+    path: str, pointer: list[str], old: str | None, new: str | None
+) -> str:
+    """The edit as a small diff, for reports."""
+    key_path = "/".join(pointer)
+    old_text = f"{key_path}: {old}\n" if old is not None else ""
+    new_text = f"{key_path}: {new}\n" if new is not None else ""
+    return _change_diff(path, old_text, new_text)
 
 
 @dataclass(frozen=True, slots=True)
