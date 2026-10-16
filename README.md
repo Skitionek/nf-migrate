@@ -150,6 +150,9 @@ first lines of Nextflow's error go to stderr and into the report as a warning,
 and the exit code stays 0, because Nextflow may also fail on a network
 resource. Without the `nextflow` command the option stops with an error.
 
+To resolve a sync PR the action cannot, see
+[docs/resolving-template-prs.md](docs/resolving-template-prs.md).
+
 ## Pipelines older than nf-core/tools 3.0
 
 The chain starts at 1.9 because some nf-core pipelines never merged a
