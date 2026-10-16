@@ -28,11 +28,13 @@ each conflicting template change as a diff to apply by hand.
 Migrations are pipeline-independent. Values the template bakes in are stored
 as placeholders and filled from the target's `.nf-core.yml` `template:`
 section: `{{pipeline_name}}`, `{{PIPELINE_NAME}}`, `{{pipeline_author}}`,
-`{{pipeline_description}}`, `{{pipeline_version}}`.
+`{{pipeline_description}}`, `{{pipeline_version}}`. Pipelines from before
+nf-core/tools 3.0 have no such section; as sync did then, the values come
+from the `manifest` in `nextflow.config` instead.
 
 ## Upgrading a pipeline
 
-The chain for nf-core/tools 3.3.1 → 4.1.0 ships with the package
+The chain for nf-core/tools 1.9 → 4.1.0 ships with the package
 (`src/nf_migrate/nf_core_migrations`):
 
 ```bash
@@ -101,6 +103,19 @@ The push uses the credentials `actions/checkout` stored. Pushes made with
 the default `GITHUB_TOKEN` do not start other workflows, so to run CI on
 the resolved PR, give checkout a PAT or GitHub App token instead.
 
+## Pipelines older than nf-core/tools 3.0
+
+The chain starts at 1.9 because some nf-core pipelines never merged a
+newer template: slamseq, imcyto and mnaseseq are still on 1.9, and
+dualrnaseq and cageseq on 1.12.1 (October 2026). Their TEMPLATE branches
+hold syncs up to 4.1.0, so their next sync PR has to bridge every
+release in between in one git merge.
+
+Those pipelines have no `nf_core_version`, often no `.nf-core.yml` at all.
+`upgrade` and `merge-template` then start from the version `detect` finds,
+and the first migration writes the stamp. Record a known version with
+`stamp` first to skip detection.
+
 ## When nf_core_version is wrong
 
 `nf_core_version` can disagree with the files, for example after a template
@@ -120,7 +135,8 @@ lacks. The PR comment warns about a mismatch even without the flag.
 ```bash
 # 1. Render the template per release with placeholder values into a tagged
 #    history repo. Releases before 3.4 need NXF_SYNTAX_PARSER=v1 on
-#    Nextflow >= 26.
+#    Nextflow >= 26. Releases before 3.0 install with the Python and
+#    dependencies of their release date.
 scripts/build_template_history.sh scripts/sentinel.nf-core.yml history 4.1.0 4.2.0
 
 # 2. Generate the migration, then review it.
