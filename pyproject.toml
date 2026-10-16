@@ -3,6 +3,8 @@ name = "nf-migrate"
 version = "0.2.0"
 description = "Alembic-style, upgrade-only migrations for nf-core template updates"
 requires-python = ">=3.12"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 dependencies = [
     "pyyaml>=6.0.3",
 ]
