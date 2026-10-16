@@ -1,15 +1,22 @@
 """Turn evaluate_pipeline.py results into the tables in docs/validation.md.
 
-usage: summarize_evaluation.py RESULT.json...
+usage: summarize_evaluation.py [--min-from VERSION] RESULT.json...
+
+`--min-from` keeps only merges that started at VERSION or later, to compare
+with a chain that began there.
 """
 
+import argparse
 import json
 import re
-import sys
 from collections import Counter
 from pathlib import Path
 
-OUTCOMES = ("APPLIED", "ALREADY_APPLIED", "CONFLICT", "MANUAL")
+OUTCOMES = ("APPLIED", "ALREADY_APPLIED", "CONFLICT", "SUGGESTED", "MANUAL")
+
+
+def version_key(version: str) -> list[int]:
+    return [int(part) for part in re.findall(r"\d+", version)]
 
 
 def normalise_path(path: str) -> str:
@@ -21,8 +28,21 @@ def normalise_path(path: str) -> str:
 
 
 def main() -> None:
-    results = [json.loads(Path(name).read_text()) for name in sys.argv[1:]]
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("results", nargs="+", type=Path)
+    parser.add_argument("--min-from")
+    arguments = parser.parse_args()
+
+    results = [json.loads(path.read_text()) for path in arguments.results]
     results.sort(key=lambda result: result["pipeline"])
+    if arguments.min_from:
+        minimum = version_key(arguments.min_from)
+        for result in results:
+            result["steps"] = [
+                step
+                for step in result["steps"]
+                if version_key(step["from"]) >= minimum
+            ]
 
     rows: list[str] = []
     totals: Counter = Counter()
@@ -82,17 +102,23 @@ def main() -> None:
         f"| **Total** | **{evaluated_steps}** | {total_counts} "
         f"| **{total_identical}/{total_touched}** |"
     )
+    # Suggestions are template changes nf-migrate did not make, so they
+    # count against the automatic share like conflicts do.
     text_operations = (
-        totals["APPLIED"] + totals["ALREADY_APPLIED"] + totals["CONFLICT"]
+        totals["APPLIED"]
+        + totals["ALREADY_APPLIED"]
+        + totals["CONFLICT"]
+        + totals["SUGGESTED"]
     )
     automatic = totals["APPLIED"] + totals["ALREADY_APPLIED"]
 
     print("## Per pipeline\n")
     print(
         "| Pipeline | Merges | Applied | Already applied | Conflict "
-        "| Manual step | Changed files identical to the human merge |"
+        "| Suggested | Manual step "
+        "| Changed files identical to the human merge |"
     )
-    print("|---|---|---|---|---|---|---|")
+    print("|---|---|---|---|---|---|---|---|")
     print("\n".join(rows))
     print(
         f"\nText operations resolved automatically: "

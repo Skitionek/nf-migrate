@@ -26,8 +26,11 @@ it. For every `TEMPLATE` commit whose version the chain covers, it:
 
 Two deliberate differences from a real `nf-migrate upgrade`:
 
-- Every operation is applied, even after a conflict, so all outcomes are
-  counted. The real upgrade stops a release at its first conflict.
+- Every release is applied, even after a conflict, so all outcomes are
+  counted: migrations run as `upgrade --allow-conflicts` does, or with
+  `--partial-files` as `upgrade --partial-files` does. The 0.2.0 figures
+  below applied every operation without holding files back, which
+  `--partial-files` matches.
 - When one sync PR merged several `TEMPLATE` commits, the merge is counted
   once, against the newest of them.
 
@@ -202,6 +205,52 @@ usage ...") into the pipeline CHANGELOG and 2.3.2 removed it, so
 `UNINTENDED_CHANGES` in `autogenerate.py`), while `v2_3_2.py` still removes
 it from pipelines that merged it.
 
+## Since 0.2.0: more changes applied automatically
+
+Five changes raise the share of template changes nf-migrate makes by
+itself: template changes that no longer fit README.md, CHANGELOG.md,
+CITATIONS.md or `docs/*.md` are suggestions rather than conflicts; a
+`Replace` matches lines ignoring whitespace, or on the intact side of its
+context; JSON files are edited by key, falling back to the text hunk
+where a pipeline renamed the key; `--partial-files` keeps the changes that
+fit in a file with a conflict; and a file's manual step is reported only
+from the last release that touches it. The whole chain is regenerated
+with the generator fixes made for the 1.9 support.
+
+On the same 43 merges as the 0.2.0 results above:
+
+| | 0.2.0 | Now, `--allow-conflicts` | Now, `--partial-files` |
+|---|---|---|---|
+| Applied | 1922 | 1721 | 1992 |
+| Already applied | 146 | 162 | 161 |
+| Conflict | 419 | 592 | 322 |
+| Suggested | — | 40 | 40 |
+| Manual step | 197 | 144 | 144 |
+| Applied automatically | 83% | 75% | 86% |
+| Changed files identical to the human merge | 587/742 | 603/693 | 617/780 |
+| Merges with no conflict | 8/40 | 8/40 | 8/40 |
+
+Suggestions count as not automatic. 0.2.0 applied every operation, so its
+column compares with `--partial-files`; `--allow-conflicts` holds files
+with a conflict back and so applies less, but 87% of the files it changes
+match the human merge. 53 manual steps are left out because a later
+release in the same upgrade covers the same file. `nextflow_schema.json`
+and `assets/schema_input.json`, 12 conflicts in 0.2.0, have none left.
+
+With the chain back to 1.9 the evaluation also replays these pipelines'
+older template merges: 251 merges, 238 of them updates. There
+`--partial-files` applies 82% of changes automatically (14032 of 17076),
+31 merges have no conflict, and 3000 of the 4258 files it changes match
+the human merge.
+
+On the three 1.9 pipelines, upgrading to 4.1.0:
+
+| Pipeline | Before | `--allow-conflicts` | `--partial-files` | Manual steps |
+|---|---|---|---|---|
+| slamseq | 65% | 75% | 89% | 101 → 12 |
+| imcyto | 64% | 71% | 81% | 101 → 12 |
+| mnaseseq | 66% | 76% | 90% | 101 → 12 |
+
 ## Skipped merges
 
 Six merges fall outside the chain as it stood for this evaluation and were
@@ -245,6 +294,8 @@ done
 
 for pipeline in pipelines/*; do
   name=$(basename "$pipeline")
+  # Add --partial-files to evaluate that mode. Run one evaluation per
+  # clone at a time: blob-less clones fetch file contents on demand.
   uv run python scripts/evaluate_pipeline.py "$pipeline" "work/$name" \
     > "results/$name.json"
 done
