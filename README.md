@@ -127,6 +127,11 @@ The push uses the credentials `actions/checkout` stored. Pushes made with
 the default `GITHUB_TOKEN` do not start other workflows, so to run CI on
 the resolved PR, give checkout a PAT or GitHub App token instead.
 
+`merge-template --lint-fix` follows the merge commit with two commits from
+`nf-core pipelines lint --fix`: one for the files nf-core can restore
+(action pins, logos, RO-Crate), one for the regenerated container configs.
+It needs the `nf-core` command and prints the last commit.
+
 ## Pipelines older than nf-core/tools 3.0
 
 The chain starts at 1.9 because some nf-core pipelines never merged a

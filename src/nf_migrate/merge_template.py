@@ -57,6 +57,7 @@ def merge_template(
     migrations_dir: Path,
     detect: bool = False,
     allow_conflicts: bool = False,
+    lint_fix: bool = False,
 ) -> MergeResult:
     """Upgrade `base` to the template version on `head`.
 
@@ -66,6 +67,8 @@ def merge_template(
     with `detect`, the upgrade also starts from it when it is older than
     the stamp. With `allow_conflicts` the merge commit holds every change
     that fits, and the report lists the conflicts left for review.
+    With `lint_fix`, `nf-core pipelines lint --fix` commits follow the merge
+    and the last of them is returned.
     """
     base_sha = _git(repo, "rev-parse", "--verify", f"{base}^{{commit}}")
     head_sha = _git(repo, "rev-parse", "--verify", f"{head}^{{commit}}")
@@ -105,6 +108,8 @@ def merge_template(
                 commit = _commit_merge(
                     worktree, base_sha, head_sha, target_version
                 )
+                if lint_fix:
+                    commit = _commit_lint_fixes(worktree, commit)
         finally:
             _git(repo, "worktree", "remove", "--force", str(worktree))
 
@@ -133,6 +138,44 @@ def _commit_merge(
         "-m",
         message,
     )
+
+
+# Each fix is its own commit: the container configs are regenerated from the
+# files the first fix leaves, and nf-core refuses to run on a dirty tree.
+LINT_FIXES = (
+    ("files_unchanged", "style: apply nf-core pipelines lint --fix"),
+    ("container_configs", "chore: regenerate container configs"),
+)
+
+
+def _commit_lint_fixes(worktree: Path, merge_commit: str) -> str:
+    _git(worktree, "reset", "--quiet", "--hard", merge_commit)
+    for fix_name, message in LINT_FIXES:
+        _run_lint_fix(worktree, fix_name)
+        if _git(worktree, "status", "--porcelain"):
+            _git(worktree, "add", "--all")
+            _git(worktree, "commit", "--quiet", "-m", message)
+    return _git(worktree, "rev-parse", "HEAD")
+
+
+def _run_lint_fix(worktree: Path, fix_name: str) -> None:
+    command = [
+        "nf-core",
+        "pipelines",
+        "lint",
+        "--dir",
+        str(worktree),
+        "--fix",
+        fix_name,
+    ]
+    try:
+        # nf-core exits non-zero while any lint test still fails, which is
+        # expected here: only the files it fixed are wanted.
+        subprocess.run(command, check=False, capture_output=True, text=True)
+    except FileNotFoundError:
+        raise MigrationError(
+            "--lint-fix needs the nf-core command (pip install nf-core)"
+        ) from None
 
 
 def _git(repo: Path, *args: str) -> str:

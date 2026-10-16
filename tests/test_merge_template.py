@@ -5,6 +5,7 @@ import pytest
 
 from nf_migrate.cli import main
 from nf_migrate.merge_template import merge_template
+from nf_migrate.migrations import MigrationError
 
 
 def git(repo: Path, *args: str) -> str:
@@ -226,3 +227,109 @@ def test_unstamped_base_upgrades_from_the_detected_version(
     )
     markdown = result.render_markdown()
     assert "has no `nf_core_version`" in markdown
+
+
+@pytest.fixture
+def fake_nf_core(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """An `nf-core` on PATH; `lint --dir D --fix NAME` writes `D/NAME.fixed`."""
+    bin_directory = tmp_path / "bin"
+    bin_directory.mkdir()
+    executable = bin_directory / "nf-core"
+    executable.write_text(
+        "#!/bin/sh\n"
+        'echo "$@" >> "$FAKE_NF_CORE_LOG"\n'
+        'while [ "$1" != "--dir" ]; do shift; done\n'
+        'directory="$2"\n'
+        'while [ "$1" != "--fix" ]; do shift; done\n'
+        'echo fixed > "$directory/$2.fixed"\n'
+        # nf-core exits 1 when other lint tests still fail.
+        "exit 1\n"
+    )
+    executable.chmod(0o755)
+    log = tmp_path / "nf-core.log"
+    monkeypatch.setenv("FAKE_NF_CORE_LOG", str(log))
+    monkeypatch.setenv("PATH", f"{bin_directory}:/usr/bin:/bin")
+    return log
+
+
+def test_lint_fix_adds_one_commit_per_fix_on_top_of_the_merge(
+    repo: Path, migrations_dir: Path, fake_nf_core: Path
+) -> None:
+    # Given
+    dev_sha = git(repo, "rev-parse", "dev")
+    template_sha = git(repo, "rev-parse", "TEMPLATE")
+
+    # When
+    result = merge_template(
+        repo, "dev", "TEMPLATE", migrations_dir, lint_fix=True
+    )
+
+    # Then
+    assert result.commit is not None
+    subjects = git(repo, "log", "--format=%s", "-3", result.commit).splitlines()
+    assert subjects == [
+        "chore: regenerate container configs",
+        "style: apply nf-core pipelines lint --fix",
+        "Merge nf-core/tools 3.3.1 template with nf-migrate",
+    ]
+    merge_commit = git(repo, "rev-parse", f"{result.commit}~2")
+    parents = git(repo, "rev-list", "--parents", "-n", "1", merge_commit)
+    assert parents.split()[1:] == [dev_sha, template_sha]
+    assert git(repo, "show", f"{result.commit}:files_unchanged.fixed") == (
+        "fixed"
+    )
+    assert git(repo, "show", f"{result.commit}:container_configs.fixed") == (
+        "fixed"
+    )
+
+
+def test_lint_fix_is_skipped_unless_asked_for(
+    repo: Path, migrations_dir: Path, fake_nf_core: Path
+) -> None:
+    # Given a repo and an nf-core that would change files
+
+    # When
+    result = merge_template(repo, "dev", "TEMPLATE", migrations_dir)
+
+    # Then
+    assert result.commit is not None
+    assert not fake_nf_core.exists()
+    subject = git(repo, "log", "--format=%s", "-1", result.commit)
+    assert subject.startswith("Merge nf-core/tools")
+
+
+def test_lint_fix_without_nf_core_installed_is_an_error(
+    repo: Path, migrations_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Given
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+
+    # When / Then
+    with pytest.raises(MigrationError, match="nf-core"):
+        merge_template(repo, "dev", "TEMPLATE", migrations_dir, lint_fix=True)
+
+
+def test_cli_lint_fix_flag_prints_the_last_commit(
+    repo: Path, migrations_dir: Path, fake_nf_core: Path, capsys
+) -> None:
+    # Given the --lint-fix flag
+
+    # When
+    exit_code = main(
+        [
+            "--migrations",
+            str(migrations_dir),
+            "merge-template",
+            "--repo",
+            str(repo),
+            "--lint-fix",
+            "dev",
+            "TEMPLATE",
+        ]
+    )
+
+    # Then
+    commit = capsys.readouterr().out.strip()
+    assert exit_code == 0
+    subject = git(repo, "log", "--format=%s", "-1", commit)
+    assert subject == "chore: regenerate container configs"
