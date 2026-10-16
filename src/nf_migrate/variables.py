@@ -88,7 +88,9 @@ def _variables_from_template(template: dict) -> dict[str, str]:
     variables: dict[str, str] = {}
     for name, key in VARIABLE_SOURCES.items():
         value = template.get(key)
-        if value:
+        # An empty string counts: the template renders an unset author as
+        # `author = """"""`, and a migration still has to fill that spot.
+        if value is not None:
             variables[name] = str(value)
     if "PIPELINE_NAME" in variables:
         variables["PIPELINE_NAME"] = variables["PIPELINE_NAME"].upper()
@@ -107,7 +109,8 @@ def expand(text: str, variables: dict[str, str]) -> str:
             raise TemplateVariableError(
                 f"migration needs {token}, but neither .nf-core.yml "
                 f"template.{source_key} nor the nextflow.config manifest "
-                "sets it"
+                f"sets it; add `{source_key}` under `template:` in "
+                f"{NF_CORE_YML} (or to `manifest {{ }}`) and run again"
             )
         text = text.replace(token, variables[name])
     return text
@@ -118,6 +121,9 @@ def templatize(text: str, variables: dict[str, str]) -> str:
     # description mentioning the name) is replaced as a whole.
     by_length = sorted(variables.items(), key=lambda item: -len(item[1]))
     for name, value in by_length:
+        # An empty value matches between every character.
+        if not value:
+            continue
         text = text.replace(value, placeholder(name))
     return text
 

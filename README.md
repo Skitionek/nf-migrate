@@ -153,6 +153,16 @@ Those pipelines have no `nf_core_version`, often no `.nf-core.yml` at all.
 and the first migration writes the stamp. Record a known version with
 `stamp` first to skip detection.
 
+The template side can lack a version too. `merge-template` reads the
+release from the template branch's `.nf-core.yml`; before tools 2.14 that
+file has no `nf_core_version` (before 1.13 there is no file), so it falls
+back to the commit subject, "Template update for nf-core/tools version X".
+If neither says, it stops and names both places.
+
+Pipeline values such as the author come from `.nf-core.yml` `template:` or,
+without it, the `manifest` in `nextflow.config`. An author left empty there
+stays empty; one that is missing is an error that names the key to add.
+
 ## When nf_core_version is wrong
 
 `nf_core_version` can disagree with the files, for example after a template
