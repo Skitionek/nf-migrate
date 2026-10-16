@@ -2,17 +2,18 @@
 
 For every TEMPLATE commit the bundled chain covers, find the dev merge that
 brought it in, apply the chain to the commit before that merge, and compare
-the result with the merge the maintainers resolved by hand. Every operation
-is applied (no stop at the first conflict) so all outcomes are counted.
+the result with the merge the maintainers resolved by hand. Migrations run
+as `upgrade --allow-conflicts` does, so all outcomes are counted; with
+`--partial-files`, as `upgrade --partial-files` does.
 
-usage: evaluate_pipeline.py REPO WORK_DIR
+usage: evaluate_pipeline.py [--partial-files] REPO WORK_DIR
 """
 
+import argparse
 import json
 import re
 import shutil
 import subprocess
-import sys
 from collections import Counter
 from pathlib import Path
 
@@ -24,7 +25,7 @@ from nf_migrate.migrations import (
     pending_migrations,
 )
 from nf_migrate.operations import Outcome, Workspace
-from nf_migrate.runner import stamp_workspace
+from nf_migrate.runner import run_migrations
 from nf_migrate.variables import pipeline_variables
 from nf_migrate.version import parse_version, read_version
 
@@ -120,7 +121,12 @@ def template_version(repo: Path, template_commit: str) -> str | None:
 
 
 def evaluate_step(
-    repo: Path, work: Path, merge: str, target: str, chain: list
+    repo: Path,
+    work: Path,
+    merge: str,
+    target: str,
+    chain: list,
+    partial_files: bool,
 ) -> dict:
     before_ref = git(repo, "rev-parse", "--short", f"{merge}^1")
     after_ref = git(repo, "rev-parse", "--short", merge)
@@ -146,13 +152,16 @@ def evaluate_step(
 
     step["detected"] = detected
     workspace = Workspace(before, pipeline_variables(before))
+    report = run_migrations(
+        workspace,
+        migrations,
+        allow_conflicts=True,
+        partial_files=partial_files,
+    )
     outcomes: Counter = Counter()
     conflicts: list[str] = []
-    for migration in migrations:
-        # As the runner does: migrations expect .nf-core.yml stamped.
-        stamp_workspace(workspace, migration.revision)
-        for operation in migration.operations:
-            result = operation.apply(workspace)
+    for migration_report in report.migrations:
+        for result in migration_report.results:
             outcomes[result.outcome.name] += 1
             if result.outcome is Outcome.CONFLICT:
                 conflicts.append(f"{result.path}: {result.message}")
@@ -165,6 +174,7 @@ def evaluate_step(
         == ((after / path).read_text() if (after / path).is_file() else None)
     ]
     step.update(
+        superseded_manual_steps=report.superseded_manual_steps,
         outcomes=dict(outcomes),
         conflicts=conflicts,
         touched=len(touched),
@@ -175,13 +185,20 @@ def evaluate_step(
 
 
 def main() -> None:
-    repo = Path(sys.argv[1])
-    work = Path(sys.argv[2])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("repo", type=Path)
+    parser.add_argument("work", type=Path)
+    parser.add_argument("--partial-files", action="store_true")
+    arguments = parser.parse_args()
+
+    repo = arguments.repo
     chain = load_migrations(BUNDLED_MIGRATIONS)
     revisions = {migration.revision for migration in chain}
 
     steps = [
-        evaluate_step(repo, work, merge, target, chain)
+        evaluate_step(
+            repo, arguments.work, merge, target, chain, arguments.partial_files
+        )
         for merge, target in template_merges(repo, revisions)
     ]
     dev_commit = git(repo, "rev-parse", "origin/dev")

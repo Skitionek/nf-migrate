@@ -8,14 +8,24 @@ small idempotent operations, and applies them without an LLM:
 
 - `Replace(path, old, new)` — a template diff hunk. Applied when `old`
   occurs exactly once (line-aligned), skipped as already applied when only
-  `new` is present, otherwise a conflict.
+  `new` is present. Failing that, it matches lines ignoring whitespace (when
+  every line moved by the same indentation, re-indenting `new` to match),
+  then on the context of one side of the change only, if that side is more
+  than punctuation; otherwise a conflict.
+- `JsonEdit(path, pointer, old, new, after)` — one key of a JSON file, such
+  as a `nextflow_schema.json` parameter. Matched by key path and value, so a
+  pipeline's own parameters around it do not get in the way; only the
+  member's text changes.
 - `CreateFile(path, content)` / `DeleteFile(path, expected_content)` —
-  delete only removes files the pipeline left untouched.
+  delete only removes files the pipeline left untouched;
+  `DeleteBinaryFile(path, sha256)` does the same for images by their hash.
 - `NfCoreComponent(kind, name, git_sha)` — an nf-core module or subworkflow
   the template pins. Already applied when `modules.json` has that `git_sha`,
   otherwise reported with the `nf-core modules|subworkflows` command to run.
 - `ManualStep(path, instruction)` — files nf-core generates (RO-Crate,
-  container configs) or binary files; reported, never blocking.
+  container configs, logos) or other binary files; reported, never
+  blocking. When an upgrade spans several releases, only the last release's
+  step for a file is reported.
 
 Each migration is all-or-nothing: a conflict leaves every file and the
 `nf_core_version` in `.nf-core.yml` unchanged, and the report names the
@@ -24,6 +34,14 @@ conflicting hunks. With `--allow-conflicts` (on `upgrade` and
 carries on to the target; a file with any conflicting change is left
 untouched as a whole, so it is never half converted, and the report shows
 each conflicting template change as a diff to apply by hand.
+`--partial-files` goes further and keeps the changes that fit in such a
+file too: far fewer conflicts over a long upgrade, at the price of files
+that are part template-old, part template-new until the report is worked
+through.
+
+The template only seeds README.md, CHANGELOG.md, CITATIONS.md and
+`docs/*.md`; pipelines rewrite them. A change that no longer fits one of
+them is reported as a suggestion with its diff and does not block.
 
 Migrations are pipeline-independent. Values the template bakes in are stored
 as placeholders and filled from the target's `.nf-core.yml` `template:`
@@ -152,14 +170,16 @@ Migrations may also define their own operation classes: anything with a
 
 ## Validation
 
-Replaying 43 real template merges from 11 nf-core pipelines, 83% of the
-template changes applied automatically, and 79% of the files nf-migrate
-changed matched what the maintainers merged by hand. Nearly every merge
-still had a few conflicts, mostly in code the pipeline owns
-(`workflows/<name>.nf`, the local utils subworkflow, README.md,
-nextflow.config): 8 of 40 merges would have gone through untouched. See
-[docs/validation.md](docs/validation.md) for the method, per-pipeline
-results, version detection and how to reproduce it.
+Replaying 43 real template merges from 11 nf-core pipelines with
+`--partial-files`, 86% of the template changes applied automatically, and
+79% of the files nf-migrate changed matched what the maintainers merged
+by hand. Nearly every merge still had a few conflicts, mostly in code the
+pipeline owns (`workflows/<name>.nf`, the local utils subworkflow,
+`nextflow.config`): 8 of 40 merges would have gone through untouched. On
+the three pipelines still on the 1.9 template, 81–90% of the changes up to
+4.1.0 apply automatically. See [docs/validation.md](docs/validation.md)
+for the method, per-pipeline results, version detection and how to
+reproduce it.
 
 ## Development
 
