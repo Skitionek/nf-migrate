@@ -14,8 +14,12 @@ from difflib import SequenceMatcher
 from fnmatch import fnmatch
 from pathlib import Path
 
+from nf_migrate import json_text
 from nf_migrate.operations import (
     NF_CORE_MODULES_REPO,
+    JsonEdit,
+    Outcome,
+    Workspace,
     find_line_aligned,
     is_inside_match,
 )
@@ -62,6 +66,16 @@ class GeneratedMigration:
     revision: str
     down_revision: str
     source: str
+
+
+@dataclass(frozen=True, slots=True)
+class HunkSpan:
+    """A hunk's text and its [start, end) lines in the old and new file."""
+
+    old: str
+    new: str
+    old_lines: range
+    new_lines: range
 
 
 @dataclass(slots=True)
@@ -217,6 +231,11 @@ def _operations_for_change(
     if old_text is None or new_text is None:
         return []
 
+    if change.path.endswith(".json"):
+        json_operations = _json_operations(path, old_text, new_text, variables)
+        if json_operations:
+            return json_operations
+
     operations: list[str] = []
     for old_block, new_block in diff_hunks(old_text, new_text):
         unintended = _unintended_change(
@@ -244,6 +263,165 @@ def _unintended_change(
     return None
 
 
+@dataclass(frozen=True, slots=True)
+class JsonChange:
+    pointer: list[str]
+    old: str | None
+    new: str | None
+    after: str | None = None
+    # Line of the member's key in the old and new file, when present.
+    old_line: int | None = None
+    new_line: int | None = None
+
+
+def _json_operations(
+    path: str, old_text: str, new_text: str, variables: dict[str, str]
+) -> list[str]:
+    """JsonEdits for a JSON file, or none when they would not suffice.
+
+    Edits by key survive a pipeline adding or reordering its own members,
+    where text hunks would not. They are only used when replaying them on
+    the old template rebuilds the new one exactly; formatting-only or
+    key-order changes are left to text hunks.
+    """
+    try:
+        old_document = json_text.parse(old_text)
+        new_document = json_text.parse(new_text)
+    except json_text.JsonTextError:
+        return []
+    changes: list[JsonChange] = []
+    _diff_json_objects(
+        old_text, old_document, new_text, new_document, [], changes
+    )
+    if not changes:
+        return []
+
+    replay = Workspace(Path("."))
+    replay.write(path, old_text)
+    for change in changes:
+        edit = JsonEdit(
+            path, change.pointer, change.old, change.new, change.after
+        )
+        if edit.apply(replay).outcome is not Outcome.APPLIED:
+            return []
+    if replay.read(path) != new_text:
+        return []
+
+    spans = diff_hunk_spans(old_text, new_text)
+    operations = []
+    for change in changes:
+        span = _span_for_change(spans, change)
+        fallback_old = span.old if span is not None else None
+        fallback_new = span.new if span is not None else None
+        operations.append(
+            _call(
+                "JsonEdit",
+                path,
+                [templatize(key, variables) for key in change.pointer],
+                old=_templatize_optional(change.old, variables),
+                new=_templatize_optional(change.new, variables),
+                after=_templatize_optional(change.after, variables),
+                fallback_old=_templatize_optional(fallback_old, variables),
+                fallback_new=_templatize_optional(fallback_new, variables),
+            )
+        )
+    return operations
+
+
+def _span_for_change(
+    spans: list[HunkSpan], change: JsonChange
+) -> HunkSpan | None:
+    """The text hunk over the lines a JSON change touches."""
+    for span in spans:
+        if change.old_line is not None and change.old_line in span.old_lines:
+            return span
+        if change.new_line is not None and change.new_line in span.new_lines:
+            return span
+    return None
+
+
+def _diff_json_objects(
+    old_text: str,
+    old_node: json_text.Node,
+    new_text: str,
+    new_node: json_text.Node,
+    pointer: list[str],
+    changes: list[JsonChange],
+) -> None:
+    old_members = {member.key: member for member in old_node.members}
+    new_keys = {member.key for member in new_node.members}
+
+    previous_key = None
+    for new_member in new_node.members:
+        key = new_member.key
+        new_value = _member_text(new_text, new_member)
+        old_member = old_members.get(key)
+        new_line = _line_of(new_text, new_member.key_start)
+        if old_member is None:
+            changes.append(
+                JsonChange(
+                    [*pointer, key],
+                    None,
+                    new_value,
+                    previous_key,
+                    new_line=new_line,
+                )
+            )
+        elif old_member.value.is_object and new_member.value.is_object:
+            _diff_json_objects(
+                old_text,
+                old_member.value,
+                new_text,
+                new_member.value,
+                [*pointer, key],
+                changes,
+            )
+        else:
+            old_value = _member_text(old_text, old_member)
+            if old_value != new_value:
+                changes.append(
+                    JsonChange(
+                        [*pointer, key],
+                        old_value,
+                        new_value,
+                        old_line=_line_of(old_text, old_member.key_start),
+                        new_line=new_line,
+                    )
+                )
+        previous_key = key
+
+    for old_member in old_node.members:
+        if old_member.key not in new_keys:
+            old_value = _member_text(old_text, old_member)
+            changes.append(
+                JsonChange(
+                    [*pointer, old_member.key],
+                    old_value,
+                    None,
+                    old_line=_line_of(old_text, old_member.key_start),
+                )
+            )
+
+
+def _line_of(text: str, offset: int) -> int:
+    return text.count("\n", 0, offset)
+
+
+def _member_text(text: str, member: json_text.Member) -> str:
+    """A member's value, with continuation lines relative to the member."""
+    value = text[member.value.start : member.value.end]
+    indent = json_text.line_indent(text, member.key_start)
+    return json_text.dedent_continuation_lines(value, indent)
+
+
+def _templatize_optional(
+    text: str | None, variables: dict[str, str]
+) -> str | None:
+    if text is None:
+        return None
+    return templatize(text, variables)
+
+
 def _reject_placeholder_lookalikes(
     path: str, text: str | None, variables: dict[str, str]
 ) -> None:
@@ -266,6 +444,12 @@ def diff_hunks(old_text: str, new_text: str) -> list[tuple[str, str]]:
     exactly once in its template file, so local edits a few lines away from
     a template change do not make it conflict.
     """
+    spans = diff_hunk_spans(old_text, new_text)
+    return [(span.old, span.new) for span in spans]
+
+
+def diff_hunk_spans(old_text: str, new_text: str) -> list[HunkSpan]:
+    """`diff_hunks`, with the lines each hunk covers in both files."""
     old_lines = old_text.splitlines(keepends=True)
     new_lines = new_text.splitlines(keepends=True)
     opcodes = SequenceMatcher(
@@ -279,7 +463,20 @@ def diff_hunks(old_text: str, new_text: str) -> list[tuple[str, str]]:
     ]
     hunks = _choose_unique_context(hunks, opcodes, old_text, new_text)
     hunks = _merge_overlapping(hunks, opcodes)
-    return [_hunk_blocks(hunk, opcodes, old_lines, new_lines) for hunk in hunks]
+
+    spans: list[HunkSpan] = []
+    for hunk in hunks:
+        old_block, new_block = _hunk_blocks(hunk, opcodes, old_lines, new_lines)
+        _, old_start, _, new_start, _ = opcodes[hunk.first_opcode]
+        _, _, old_end, _, new_end = opcodes[hunk.last_opcode]
+        old_span = range(
+            old_start - hunk.context_before, old_end + hunk.context_after
+        )
+        new_span = range(
+            new_start - hunk.context_before, new_end + hunk.context_after
+        )
+        spans.append(HunkSpan(old_block, new_block, old_span, new_span))
+    return spans
 
 
 def _choose_unique_context(
@@ -440,7 +637,9 @@ def _git(repo: Path, *args: str) -> str:
     return completed.stdout
 
 
-def _call(operation: str, *positional: str, **keyword: str | None) -> str:
+def _call(
+    operation: str, *positional: str | list[str], **keyword: str | None
+) -> str:
     """Source for one operation, indented as an item of `operations`."""
     arguments = [f"        {_literal(value)}," for value in positional]
     for name, value in keyword.items():
@@ -449,9 +648,9 @@ def _call(operation: str, *positional: str, **keyword: str | None) -> str:
     return f"    {operation}(\n{body}\n    ),"
 
 
-def _literal(value: str | None) -> str:
+def _literal(value: str | list[str] | None) -> str:
     """Multi-line text as a readable triple-quoted literal when safe."""
-    if value is None or "\n" not in value:
+    if value is None or isinstance(value, list) or "\n" not in value:
         return repr(value)
     is_safe = (
         '"""' not in value and "\\" not in value and not value.endswith('"')
@@ -473,6 +672,7 @@ def _render_module(
         "from nf_migrate.operations import (\n"
         "    CreateFile,\n"
         "    DeleteFile,\n"
+        "    JsonEdit,\n"
         "    ManualStep,\n"
         "    NfCoreComponent,\n"
         "    Replace,\n"
