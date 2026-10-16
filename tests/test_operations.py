@@ -107,18 +107,6 @@ def test_replace_only_matches_whole_lines(tmp_path: Path) -> None:
     assert workspace.read("a.txt") == "line 13\nline three\n"
 
 
-def test_replace_conflicts_when_file_is_missing(tmp_path: Path) -> None:
-    # Given
-    workspace = make_workspace(tmp_path, {})
-    operation = Replace("a.config", old="y = 2\n", new="y = 3\n")
-
-    # When
-    result = operation.apply(workspace)
-
-    # Then
-    assert result.outcome is Outcome.CONFLICT
-
-
 def test_replace_matches_old_text_realigned_by_the_pipeline(
     tmp_path: Path,
 ) -> None:
@@ -634,7 +622,7 @@ def test_regex_replace_fills_placeholders_as_literal_text(
     assert workspace.read("README.md") == "# c++tools\n"
 
 
-def test_regex_replace_conflicts_when_file_is_missing(tmp_path: Path) -> None:
+def test_regex_replace_is_skipped_when_file_is_missing(tmp_path: Path) -> None:
     # Given
     workspace = make_workspace(tmp_path, {})
 
@@ -642,8 +630,8 @@ def test_regex_replace_conflicts_when_file_is_missing(tmp_path: Path) -> None:
     result = MAX_CPUS.apply(workspace)
 
     # Then
-    assert result.outcome is Outcome.CONFLICT
-    assert result.message == "file does not exist"
+    assert result.outcome is Outcome.SKIPPED
+    assert result.message == "the pipeline has no such file"
 
 
 # BumpVersion
@@ -943,3 +931,79 @@ def test_operations_expand_template_variables_from_the_workspace(
     assert workspace.read("workflows/rnaseq.nf") == (
         "workflow RNASEQ {\n    main:\n"
     )
+
+
+# Files the pipeline no longer has
+def test_replace_is_skipped_when_the_pipeline_has_no_such_file(
+    tmp_path: Path,
+) -> None:
+    # Given
+    workspace = make_workspace(tmp_path, {})
+    operation = Replace("conf/igenomes.config", old="a\n", new="b\n")
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.SKIPPED
+    assert result.path == "conf/igenomes.config"
+    assert workspace.read("conf/igenomes.config") is None
+
+
+def test_bump_version_is_skipped_when_the_pipeline_has_no_such_file(
+    tmp_path: Path,
+) -> None:
+    # Given
+    workspace = make_workspace(tmp_path, {})
+
+    # When
+    result = NF_SCHEMA.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.SKIPPED
+
+
+def test_first_of_is_skipped_when_the_pipeline_has_no_such_file(
+    tmp_path: Path,
+) -> None:
+    # Given
+    workspace = make_workspace(tmp_path, {})
+    operation = FirstOf(
+        "a.config",
+        (
+            Replace("a.config", old="a\n", new="b\n"),
+            Replace("a.config", old="c\n", new="d\n"),
+        ),
+    )
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.SKIPPED
+
+
+def test_edit_applies_to_a_file_an_earlier_operation_created(
+    tmp_path: Path,
+) -> None:
+    # Given a file that only exists because this migration creates it
+    workspace = make_workspace(tmp_path, {})
+    CreateFile("new.config", content="a\n").apply(workspace)
+
+    # When
+    result = Replace("new.config", old="a\n", new="b\n").apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.APPLIED
+    assert workspace.read("new.config") == "b\n"
+
+
+def test_create_file_still_creates_a_missing_file(tmp_path: Path) -> None:
+    # Given
+    workspace = make_workspace(tmp_path, {})
+
+    # When
+    result = CreateFile("new.config", content="a\n").apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.APPLIED

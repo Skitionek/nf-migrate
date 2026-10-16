@@ -23,6 +23,8 @@ class Outcome(enum.Enum):
     CONFLICT = "conflict"
     # Work nf-migrate leaves to nf-core's own tooling. Reported, not blocking.
     MANUAL = "manual step"
+    # An edit to a file the pipeline no longer has. Reported, not blocking.
+    SKIPPED = "skipped"
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +120,15 @@ class Workspace:
         return file_path.read_text()
 
 
+def missing_file_result(path: str, change: str) -> OperationResult:
+    """An edit has nothing to edit. The pipeline deleted or moved the file,
+    which is its own choice, so this is not a conflict; the report names the
+    file so a reviewer can check where the content went.
+    """
+    message = "the pipeline has no such file"
+    return OperationResult(path, Outcome.SKIPPED, message, change)
+
+
 def _change_diff(path: str, old: str, new: str) -> str:
     diff_lines = difflib.unified_diff(
         old.splitlines(keepends=True),
@@ -197,8 +208,7 @@ class Replace:
 
         content = workspace.read(path)
         if content is None:
-            message = "file does not exist"
-            return OperationResult(path, Outcome.CONFLICT, message, change)
+            return missing_file_result(path, change)
         if self.requires and self.requires not in content:
             message = f"not needed: the file has no {self.requires!r} left"
             return OperationResult(
@@ -612,8 +622,7 @@ class RegexReplace:
 
         content = workspace.read(path)
         if content is None:
-            message = "file does not exist"
-            return OperationResult(path, Outcome.CONFLICT, message, change)
+            return missing_file_result(path, change)
 
         applied_spans = [match.span() for match in applied.finditer(content)]
         # As for Replace: text the change appended to keeps matching the
@@ -704,8 +713,7 @@ class BumpVersion:
 
         content = workspace.read(path)
         if content is None:
-            message = "file does not exist"
-            return OperationResult(path, Outcome.CONFLICT, message, change)
+            return missing_file_result(path, change)
         matches = list(pattern.finditer(content))
         if not matches:
             message = "versioned text not found"

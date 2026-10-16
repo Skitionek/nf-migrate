@@ -13,7 +13,12 @@ from pathlib import Path
 
 import yaml
 
-from nf_migrate.operations import OperationResult, Outcome, Workspace
+from nf_migrate.operations import (
+    OperationResult,
+    Outcome,
+    Workspace,
+    missing_file_result,
+)
 
 # A part is a mapping key, a list index, or a selector {field: values}
 # for the list item whose field has one of those values: pipelines add
@@ -59,8 +64,7 @@ class YamlSet:
 
         content = workspace.read(path)
         if content is None:
-            message = "file does not exist"
-            return OperationResult(path, Outcome.CONFLICT, message, change)
+            return missing_file_result(path, change)
         try:
             root = yaml.compose(content)
             parent, node_key, node = _find(root, key)
@@ -354,8 +358,7 @@ class YamlListItem:
                 return OperationResult(
                     path, Outcome.ALREADY_APPLIED, "", change
                 )
-            message = "file does not exist"
-            return OperationResult(path, Outcome.CONFLICT, message, change)
+            return missing_file_result(path, change)
         try:
             _, _, sequence = _find(yaml.compose(content), key)
             if sequence is not None and not isinstance(

@@ -181,6 +181,7 @@ def test_allow_conflicts_applies_what_fits_and_reports_the_rest(
 ) -> None:
     # Given a release with one change that fits and one, in another file,
     # that does not
+    (project_dir / "other.config").write_text("something else\n")
     directory = tmp_path / "partial_migrations"
     directory.mkdir()
     (directory / "v3_3_1.py").write_text(
@@ -252,3 +253,36 @@ def test_allow_conflicts_leaves_a_file_with_a_conflict_untouched(
         "igenomes.config",
     ]
     assert "held back" in conflicts[0].message
+
+
+# Files the pipeline no longer has
+def test_changes_to_a_file_the_pipeline_lacks_are_reported_not_conflicts(
+    project_dir: Path, tmp_path: Path
+) -> None:
+    # Given a release that edits a file this pipeline deleted
+    directory = tmp_path / "deleted_file_migrations"
+    directory.mkdir()
+    (directory / "v3_3_1.py").write_text(
+        "from nf_migrate.operations import Replace\n"
+        "revision = '3.3.1'\n"
+        "down_revision = '3.2.1'\n"
+        "operations = [\n"
+        "    Replace('base.config', old='retry = 104\\n',"
+        " new='retry = 104 + 175\\n'),\n"
+        "    Replace('conf/igenomes.config', old='a\\n', new='b\\n'),\n"
+        "]\n"
+    )
+
+    # When
+    report = upgrade(project_dir, load_migrations(directory), target="head")
+
+    # Then
+    assert report.succeeded
+    assert read_version(project_dir) == "3.3.1"
+    assert (project_dir / "base.config").read_text() == "retry = 104 + 175\n"
+    assert not (project_dir / "conf/igenomes.config").exists()
+    assert "1 skipped" in report.render()
+    markdown = report.render_markdown()
+    assert "`conf/igenomes.config`: skipped, the pipeline has no such" in (
+        markdown
+    )
