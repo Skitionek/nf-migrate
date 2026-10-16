@@ -126,3 +126,18 @@ def test_component_dropped_by_template_and_pipeline_is_already_applied(
 
     # Then
     assert result.outcome is Outcome.ALREADY_APPLIED
+
+
+def test_invalid_modules_json_is_a_conflict_not_a_crash(
+    tmp_path: Path,
+) -> None:
+    # Given a modules.json left broken by a merge
+    (tmp_path / "modules.json").write_text('{"repos": {"a": 1 "b": 2}}\n')
+    operation = NfCoreComponent("modules", "multiqc", git_sha="abc123")
+
+    # When
+    result = operation.apply(Workspace(tmp_path))
+
+    # Then
+    assert result.outcome is Outcome.CONFLICT
+    assert "modules.json is not valid JSON" in result.message
