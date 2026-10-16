@@ -21,6 +21,20 @@ from nf_migrate.version import NF_CORE_YML, parse_version, stamp_version
 MODULES_JSON = "modules.json"
 COMPONENT_KINDS = ("modules", "subworkflows")
 
+# Renders of releases before 3.0 keep the version and template values here:
+# those releases wrote neither into .nf-core.yml, and adding them there
+# would put text into migrations that no real pipeline has.
+RENDER_METADATA = ".nf-migrate-render.yml"
+
+# Template changes a release shipped by mistake. Migrations follow what was
+# intended, so these are left out: (release, file, text the change adds).
+UNINTENDED_CHANGES = (
+    # 2.3.1 put an nf-core/tools release note into the pipeline CHANGELOG;
+    # 2.3.2 took it out again, and keeps removing it from pipelines that
+    # merged it.
+    ("2.3.1", "CHANGELOG.md", "Clarified conda usage"),
+)
+
 # Files nf-core generates rather than templates. The RO-Crate gets fresh
 # timestamps and random IDs on every render, and the container configs
 # follow the installed module versions, so their hunks would rarely match a
@@ -59,12 +73,13 @@ class Hunk:
 def generate_migration(
     repo: Path, old_ref: str, new_ref: str
 ) -> GeneratedMigration:
-    new_nf_core_yml = _show(repo, new_ref, NF_CORE_YML) or ""
-    old_version = parse_version(_show(repo, old_ref, NF_CORE_YML) or "")
-    new_version = parse_version(new_nf_core_yml)
+    old_metadata = _render_metadata(repo, old_ref)
+    new_metadata = _render_metadata(repo, new_ref)
+    old_version = parse_version(old_metadata)
+    new_version = parse_version(new_metadata)
     if old_version is None or new_version is None:
         raise ValueError(f"{NF_CORE_YML} has no nf_core_version at both refs")
-    variables = template_variables(new_nf_core_yml)
+    variables = template_variables(new_metadata)
 
     old_components = _component_shas(_show(repo, old_ref, MODULES_JSON))
     new_components = _component_shas(_show(repo, new_ref, MODULES_JSON))
@@ -79,7 +94,7 @@ def generate_migration(
     generated_file_patterns: set[str] = set()
     for change in _changed_files(repo, old_ref, new_ref):
         # modules.json follows the component updates below.
-        if change.path == MODULES_JSON:
+        if change.path in (MODULES_JSON, RENDER_METADATA):
             continue
         component = _component_for_path(change.path, known_components)
         if component is not None:
@@ -106,6 +121,14 @@ def generate_migration(
 
     source = _render_module(old_version, new_version, operation_sources)
     return GeneratedMigration(new_version, old_version, source)
+
+
+def _render_metadata(repo: Path, ref: str) -> str:
+    """The render's nf_core_version and template values, as YAML."""
+    metadata = _show(repo, ref, RENDER_METADATA)
+    if metadata is not None:
+        return metadata
+    return _show(repo, ref, NF_CORE_YML) or ""
 
 
 def _component_shas(modules_json: str | None) -> dict[tuple[str, str], str]:
@@ -174,6 +197,13 @@ def _operations_for_change(
     for text in (old_text, new_text):
         _reject_placeholder_lookalikes(change.path, text, variables)
 
+    # The runner stamps nf_core_version itself, creating .nf-core.yml if
+    # need be, so the stamp line is the same on both sides and never part of
+    # a change; diffing it would tie hunks to its quoting and position.
+    if change.path == NF_CORE_YML:
+        old_text = stamp_version(old_text or "", version)
+        new_text = stamp_version(new_text or "", version)
+
     if old_text is None and new_text is not None:
         content = templatize(new_text, variables)
         return [_call("CreateFile", path, content=content)]
@@ -183,17 +213,31 @@ def _operations_for_change(
     if old_text is None or new_text is None:
         return []
 
-    # The runner stamps nf_core_version itself; diffing that line too would
-    # tie the hunk to whatever context surrounds it in each pipeline.
-    if change.path == NF_CORE_YML:
-        old_text = stamp_version(old_text, version)
-
     operations: list[str] = []
     for old_block, new_block in diff_hunks(old_text, new_text):
+        unintended = _unintended_change(
+            version, change.path, old_block, new_block
+        )
+        if unintended is not None:
+            operations.append(
+                f"    # Left out: {version} added {unintended!r} to "
+                f"{change.path} by mistake."
+            )
+            continue
         old = templatize(old_block, variables)
         new = templatize(new_block, variables)
         operations.append(_call("Replace", path, old=old, new=new))
     return operations
+
+
+def _unintended_change(
+    version: str, path: str, old_block: str, new_block: str
+) -> str | None:
+    for release, release_path, added_text in UNINTENDED_CHANGES:
+        is_added_here = added_text in new_block and added_text not in old_block
+        if release == version and release_path == path and is_added_here:
+            return added_text
+    return None
 
 
 def _reject_placeholder_lookalikes(
