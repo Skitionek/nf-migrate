@@ -11,6 +11,10 @@ NF_CORE_YML = ".nf-core.yml"
 # exactly as the pipeline wrote it, which a YAML round trip would not.
 VERSION_LINE = re.compile(r"^nf_core_version:[ \t]*(\S+)[ \t]*$", re.MULTILINE)
 
+# Before tools 2.14 a template commit's subject, not .nf-core.yml, says which
+# release made it: "Template update for nf-core/tools version 2.7.2".
+SUBJECT_VERSION = re.compile(r"nf-core/tools,? version (\S+)")
+
 
 def read_version(project: Path) -> str | None:
     """The stamped version; None before tools wrote one, or .nf-core.yml."""
@@ -25,6 +29,13 @@ def parse_version(content: str) -> str | None:
     if match is None:
         return None
     return match.group(1).strip("'\"")
+
+
+def parse_subject_version(subject: str) -> str | None:
+    match = SUBJECT_VERSION.search(subject)
+    if match is None:
+        return None
+    return match.group(1).rstrip(".,")
 
 
 def stamp_version(content: str, version: str) -> str:

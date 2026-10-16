@@ -229,6 +229,74 @@ def test_unstamped_base_upgrades_from_the_detected_version(
     assert "has no `nf_core_version`" in markdown
 
 
+def replace_template_head(repo: Path, files: dict[str, str], subject: str):
+    """Commit a template with `files` (and no other) on top of TEMPLATE."""
+    git(repo, "checkout", "-q", "TEMPLATE")
+    git(repo, "rm", "-r", "-f", "-q", ".")
+    commit_files(repo, files, subject)
+    git(repo, "checkout", "-q", "dev")
+
+
+def test_template_without_nf_core_yml_takes_its_version_from_the_subject(
+    repo: Path, migrations_dir: Path
+) -> None:
+    # Given a template from before nf-core/tools wrote .nf-core.yml
+    replace_template_head(
+        repo,
+        {"base.config": "retry = 104 + 175\n"},
+        "Template update for nf-core/tools version 3.3.1",
+    )
+
+    # When
+    result = merge_template(repo, "dev", "TEMPLATE", migrations_dir)
+
+    # Then
+    assert result.report.succeeded
+    assert result.target_version == "3.3.1"
+    assert git(repo, "show", f"{result.commit}:base.config") == (
+        "retry = 104 + 175"
+    )
+
+
+def test_template_with_unversioned_nf_core_yml_uses_the_subject(
+    repo: Path, migrations_dir: Path
+) -> None:
+    # Given a template whose .nf-core.yml has no nf_core_version yet
+    replace_template_head(
+        repo,
+        {
+            ".nf-core.yml": "repository_type: pipeline\n",
+            "base.config": "retry = 104 + 175\n",
+        },
+        "Template update for nf-core/tools, version 3.3.1",
+    )
+
+    # When
+    result = merge_template(repo, "dev", "TEMPLATE", migrations_dir)
+
+    # Then
+    assert result.target_version == "3.3.1"
+    assert result.commit is not None
+
+
+def test_template_with_no_version_anywhere_names_where_it_looked(
+    repo: Path, migrations_dir: Path
+) -> None:
+    # Given a template that says nothing about its version
+    replace_template_head(
+        repo, {"base.config": "retry = 104 + 175\n"}, "sync the template"
+    )
+
+    # When
+    with pytest.raises(MigrationError) as error:
+        merge_template(repo, "dev", "TEMPLATE", migrations_dir)
+
+    # Then
+    message = str(error.value)
+    assert ".nf-core.yml" in message
+    assert "nf-core/tools, version" in message
+
+
 @pytest.fixture
 def fake_nf_core(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A `uvx` on PATH; `nf-core@V pipelines lint --dir D --fix NAME` writes
