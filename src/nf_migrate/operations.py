@@ -127,6 +127,15 @@ def _change_diff(path: str, old: str, new: str) -> str:
     return "".join(diff_lines)
 
 
+def _is_inside_match(
+    position: int, length: int, match_positions: list[int], match: str
+) -> bool:
+    return any(
+        start <= position and position + length <= start + len(match)
+        for start in match_positions
+    )
+
+
 def find_line_aligned(content: str, text: str) -> list[int]:
     """Start offsets where `text` occurs beginning at the start of a line.
 
@@ -174,6 +183,17 @@ class Replace:
             return OperationResult(path, Outcome.CONFLICT, message, change)
 
         old_positions = find_line_aligned(content, old)
+        new_positions = find_line_aligned(content, new) if new else []
+        # When the template appended to the end of the old text, the new
+        # text contains the old; a match inside the new text is the change
+        # already made, not a place to make it again.
+        old_positions = [
+            position
+            for position in old_positions
+            if not _is_inside_match(position, len(old), new_positions, new)
+        ]
+        if not old_positions and new_positions:
+            return OperationResult(path, Outcome.ALREADY_APPLIED, "", change)
         if len(old_positions) == 1:
             start = old_positions[0]
             end = start + len(old)
@@ -182,8 +202,6 @@ class Replace:
         if len(old_positions) > 1:
             message = f"old text found {len(old_positions)} times"
             return OperationResult(path, Outcome.CONFLICT, message, change)
-        if new and find_line_aligned(content, new):
-            return OperationResult(path, Outcome.ALREADY_APPLIED, "", change)
         message = "old text not found"
         return OperationResult(path, Outcome.CONFLICT, message, change)
 

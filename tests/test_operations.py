@@ -46,6 +46,21 @@ def test_replace_is_already_applied_when_only_new_text_is_present(
     assert workspace.changed_paths() == []
 
 
+def test_replace_is_already_applied_when_old_text_only_occurs_inside_new(
+    tmp_path: Path,
+) -> None:
+    # Given a template change that appended a line at the end of the file
+    workspace = make_workspace(tmp_path, {".gitattributes": "a\nb\n"})
+    operation = Replace(".gitattributes", old="a\n", new="a\nb\n")
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.ALREADY_APPLIED
+    assert workspace.read(".gitattributes") == "a\nb\n"
+
+
 def test_replace_conflicts_when_neither_text_is_present(
     tmp_path: Path,
 ) -> None:
