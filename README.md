@@ -212,3 +212,12 @@ uv sync
 uv run pytest -n auto
 uv run ruff check . && uv run ruff format --check .
 ```
+
+## License
+
+Copyright (C) 2026 Dominik Mariusz Maszczyk
+
+nf-migrate is free software, licensed under the GNU General Public License,
+version 3 or later. See [LICENSE](LICENSE). The bundled migrations include
+text from nf-core/tools, which is MIT-licensed; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
