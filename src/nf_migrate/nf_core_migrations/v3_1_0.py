@@ -649,13 +649,10 @@ includeConfig 'conf/modules.config'
     Replace(
         'nextflow_schema.json',
         old="""\
-                    "default": "https://raw.githubusercontent.com/nf-core/test-datasets/",
                     "hidden": true
                 }
-            }
 """,
         new="""\
-                    "default": "https://raw.githubusercontent.com/nf-core/test-datasets/",
                     "hidden": true
                 },
                 "trace_report_suffix": {
@@ -664,7 +661,6 @@ includeConfig 'conf/modules.config'
                     "description": "Suffix to add to the trace report filename. Default is the date and time in the format yyyy-MM-dd_HH-mm-ss.",
                     "hidden": true
                 }
-            }
 """,
     ),
     Replace(

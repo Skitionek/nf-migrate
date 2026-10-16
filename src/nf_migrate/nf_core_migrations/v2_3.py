@@ -1234,16 +1234,10 @@ profiles {
     Replace(
         'nextflow_schema.json',
         old="""\
-                    "fa_icon": "fas fa-question-circle",
-                    "hidden": true
                 },
                 "email_on_fail": {
-                    "type": "string",
-                    "description": "Email address for completion summary, only when pipeline fails.",
 """,
         new="""\
-                    "fa_icon": "fas fa-question-circle",
-                    "hidden": true
                 },
                 "publish_dir_mode": {
                     "type": "string",
@@ -1262,8 +1256,6 @@ profiles {
                     "hidden": true
                 },
                 "email_on_fail": {
-                    "type": "string",
-                    "description": "Email address for completion summary, only when pipeline fails.",
 """,
     ),
     Replace(

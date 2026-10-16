@@ -243,8 +243,31 @@ jobs:
     ),
     Replace(
         '.github/workflows/download_pipeline.yml',
-        old='      - name: Compare container image counts\n        run: |\n          if [ "${{ steps.count_initial.outputs.IMAGE_COUNT_INITIAL }}" -ne "${{ steps.count_afterwards.outputs.IMAGE_COUNT_AFTER }}" ]; then\n            initial_count=${{ steps.count_initial.outputs.IMAGE_COUNT_INITIAL }}\n            final_count=${{ steps.count_afterwards.outputs.IMAGE_COUNT_AFTER }}\n            difference=$((final_count - initial_count))\n            echo "$difference additional container images were \\n downloaded at runtime . The pipeline has no support for offline runs!"\n            tree ./singularity_container_images > ./container_afterwards\n            diff ./container_initial ./container_afterwards\n            exit 1\n          else\n            echo "The pipeline can be downloaded successfully!"\n          fi\n',
-        new='      - name: Compare container image counts\n        id: count_comparison\n        run: |\n          if [ "${{ steps.count_initial.outputs.IMAGE_COUNT_INITIAL }}" -ne "${{ steps.count_afterwards.outputs.IMAGE_COUNT_AFTER }}" ]; then\n            initial_count=${{ steps.count_initial.outputs.IMAGE_COUNT_INITIAL }}\n            final_count=${{ steps.count_afterwards.outputs.IMAGE_COUNT_AFTER }}\n            difference=$((final_count - initial_count))\n            echo "$difference additional container images were \\n downloaded at runtime . The pipeline has no support for offline runs!"\n            tree ./singularity_container_images > ./container_afterwards\n            diff ./container_initial ./container_afterwards\n            exit 1\n          else\n            echo "The pipeline can be downloaded successfully!"\n          fi\n\n      - name: Upload Nextflow logfile for debugging purposes\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4\n        with:\n          name: nextflow_logfile.txt\n          path: .nextflow.log*\n          include-hidden-files: true\n',
+        old="""\
+      - name: Compare container image counts
+        run: |
+""",
+        new="""\
+      - name: Compare container image counts
+        id: count_comparison
+        run: |
+""",
+    ),
+    Replace(
+        '.github/workflows/download_pipeline.yml',
+        old="""\
+          fi
+""",
+        new="""\
+          fi
+
+      - name: Upload Nextflow logfile for debugging purposes
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nextflow_logfile.txt
+          path: .nextflow.log*
+          include-hidden-files: true
+""",
     ),
     DeleteFile(
         '.github/workflows/fix-linting.yml',
@@ -862,12 +885,10 @@ overrides:
     Replace(
         'conf/base.config',
         old="""\
-        maxRetries    = 2
     }
 }
 """,
         new="""\
-        maxRetries    = 2
     }
     withLabel: process_gpu {
         ext.use_gpu = { workflow.profile.contains('gpu') }
@@ -878,13 +899,10 @@ overrides:
     Replace(
         'nextflow.config',
         old="""\
-        }
     }
     test      { includeConfig 'conf/test.config'      }
-    test_full { includeConfig 'conf/test_full.config' }
 """,
         new="""\
-        }
     }
     gpu {
         docker.runOptions       = '-u $(id -u):$(id -g) --gpus all'
@@ -892,7 +910,6 @@ overrides:
         singularity.runOptions  = '--nv'
     }
     test      { includeConfig 'conf/test.config'      }
-    test_full { includeConfig 'conf/test_full.config' }
 """,
     ),
     Replace(

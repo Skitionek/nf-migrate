@@ -40,45 +40,18 @@ operations = [
     Replace(
         '.github/CONTRIBUTING.md',
         old="""\
-
 ### Pipeline Tests
-
-Each `nf-core` pipeline should be set up with a minimal set of test-data.
-`GitHub Actions` then runs the pipeline on this data to ensure that it exits successfully.
-If there are any failures then the automated tests fail.
-These tests are run both with the latest available version of `Nextflow` and also the minimum required version that is stated in the pipeline code.
-
-## Patch
-
-:warning: Only in the unlikely and regretful event of a release happening with a bug.
-
-* On your own fork, make a new branch `patch` based on `upstream/master`.
-* Fix the bug, and bump version (X.Y.Z+1).
-* A PR should be made on `master` from patch to directly this particular bug.
-
-## Getting help
-
+""",
+        new="""\
+### Pipeline tests
+""",
+    ),
+    Replace(
+        '.github/CONTRIBUTING.md',
+        old="""\
 For further information/help, please consult the [nf-core/{{pipeline_name}} documentation](https://nf-co.re/{{pipeline_name}}/usage) and don't hesitate to get in touch on the nf-core Slack [#{{pipeline_name}}](https://nfcore.slack.com/channels/{{pipeline_name}}) channel ([join our Slack here](https://nf-co.re/join/slack)).
 """,
         new="""\
-
-### Pipeline tests
-
-Each `nf-core` pipeline should be set up with a minimal set of test-data.
-`GitHub Actions` then runs the pipeline on this data to ensure that it exits successfully.
-If there are any failures then the automated tests fail.
-These tests are run both with the latest available version of `Nextflow` and also the minimum required version that is stated in the pipeline code.
-
-## Patch
-
-:warning: Only in the unlikely and regretful event of a release happening with a bug.
-
-* On your own fork, make a new branch `patch` based on `upstream/master`.
-* Fix the bug, and bump version (X.Y.Z+1).
-* A PR should be made on `master` from patch to directly this particular bug.
-
-## Getting help
-
 For further information/help, please consult the [nf-core/{{pipeline_name}} documentation](https://nf-co.re/{{pipeline_name}}/usage) and don't hesitate to get in touch on the nf-core Slack [#{{pipeline_name}}](https://nfcore.slack.com/channels/{{pipeline_name}}) channel ([join our Slack here](https://nf-co.re/join/slack)).
 
 ## Pipeline contribution conventions
@@ -155,13 +128,10 @@ For overview images and other documents we follow the nf-core [style guidelines 
     Replace(
         '.github/ISSUE_TEMPLATE/bug_report.md',
         old="""\
--->
 
 ## Description of the bug
-
 """,
         new="""\
--->
 
 ## Check Documentation
 
@@ -171,19 +141,15 @@ I have checked the following places for your error:
 - [ ] [nf-core/{{pipeline_name}} pipeline documentation](https://nf-co.re/nf-core/{{pipeline_name}}/usage)
 
 ## Description of the bug
-
 """,
     ),
     Replace(
         '.github/ISSUE_TEMPLATE/bug_report.md',
         old="""\
-
 <!-- A clear and concise description of what you expected to happen. -->
 
-## System
 """,
         new="""\
-
 <!-- A clear and concise description of what you expected to happen. -->
 
 ## Log files
@@ -193,7 +159,6 @@ Have you provided the following extra information/files:
 - [ ] The command used to run the pipeline
 - [ ] The `.nextflow.log` file <!-- this is a hidden file in the directory where you launched the pipeline -->
 
-## System
 """,
     ),
     Replace(
@@ -227,17 +192,18 @@ Have you provided the following extra information/files:
     Replace(
         '.github/markdownlint.yml',
         old="""\
-# Markdownlint configuration file
 default: true,
-line-length: false
-no-duplicate-header:
+""",
+        new="""\
+default: true
+""",
+    ),
+    Replace(
+        '.github/markdownlint.yml',
+        old="""\
     siblings_only: true
 """,
         new="""\
-# Markdownlint configuration file
-default: true
-line-length: false
-no-duplicate-header:
     siblings_only: true
 no-inline-html:
     allowed_elements:
@@ -260,31 +226,24 @@ FROM nfcore/base:1.12.1
     Replace(
         'README.md',
         old="""\
-
 ## Introduction
 
-The pipeline is built using [Nextflow](https://www.nextflow.io), a workflow tool to run tasks across multiple compute infrastructures in a very portable manner. It comes with docker containers making installation trivial and results highly reproducible.
 """,
         new="""\
-
 ## Introduction
 
 <!-- TODO nf-core: Write a 1-2 sentence summary of what data the pipeline is for and what it does -->
 **nf-core/{{pipeline_name}}** is a bioinformatics best-practise analysis pipeline for
 
-The pipeline is built using [Nextflow](https://www.nextflow.io), a workflow tool to run tasks across multiple compute infrastructures in a very portable manner. It comes with docker containers making installation trivial and results highly reproducible.
 """,
     ),
     Replace(
         'README.md',
         old="""\
-See [usage docs](https://nf-co.re/{{pipeline_name}}/usage) for all of the available options when running the pipeline.
 
 ## Documentation
-
 """,
         new="""\
-See [usage docs](https://nf-co.re/{{pipeline_name}}/usage) for all of the available options when running the pipeline.
 
 ## Pipeline Summary
 
@@ -296,19 +255,15 @@ By default, the pipeline currently performs the following:
 * Overall pipeline run summaries (`MultiQC`)
 
 ## Documentation
-
 """,
     ),
     Replace(
         'README.md',
         old="""\
-nf-core/{{pipeline_name}} was originally written by {{pipeline_author}}.
 
 ## Contributions and Support
-
 """,
         new="""\
-nf-core/{{pipeline_name}} was originally written by {{pipeline_author}}.
 
 We thank the following people for their extensive assistance in the development
 of this pipeline:
@@ -316,41 +271,23 @@ of this pipeline:
 <!-- TODO nf-core: If applicable, make list of people who have also contributed -->
 
 ## Contributions and Support
-
 """,
     ),
     Replace(
         'README.md',
         old="""\
-
 ## Citation
-
-<!-- TODO nf-core: Add citation for pipeline after first release. Uncomment lines below and update Zenodo doi. -->
-<!-- If you use  nf-core/{{pipeline_name}} for your analysis, please cite it using the following doi: [10.5281/zenodo.XXXXXX](https://doi.org/10.5281/zenodo.XXXXXX) -->
-
-You can cite the `nf-core` publication as follows:
-
-> **The nf-core framework for community-curated bioinformatics pipelines.**
->
-> Philip Ewels, Alexander Peltzer, Sven Fillinger, Harshil Patel, Johannes Alneberg, Andreas Wilm, Maxime Ulysse Garcia, Paolo Di Tommaso & Sven Nahnsen.
->
-> _Nat Biotechnol._ 2020 Feb 13. doi: [10.1038/s41587-020-0439-x](https://dx.doi.org/10.1038/s41587-020-0439-x).
+""",
+        new="""\
+## Citations
+""",
+    ),
+    Replace(
+        'README.md',
+        old="""\
 > ReadCube: [Full Access Link](https://rdcu.be/b1GjZ)
 """,
         new="""\
-
-## Citations
-
-<!-- TODO nf-core: Add citation for pipeline after first release. Uncomment lines below and update Zenodo doi. -->
-<!-- If you use  nf-core/{{pipeline_name}} for your analysis, please cite it using the following doi: [10.5281/zenodo.XXXXXX](https://doi.org/10.5281/zenodo.XXXXXX) -->
-
-You can cite the `nf-core` publication as follows:
-
-> **The nf-core framework for community-curated bioinformatics pipelines.**
->
-> Philip Ewels, Alexander Peltzer, Sven Fillinger, Harshil Patel, Johannes Alneberg, Andreas Wilm, Maxime Ulysse Garcia, Paolo Di Tommaso & Sven Nahnsen.
->
-> _Nat Biotechnol._ 2020 Feb 13. doi: [10.1038/s41587-020-0439-x](https://dx.doi.org/10.1038/s41587-020-0439-x).
 > ReadCube: [Full Access Link](https://rdcu.be/b1GjZ)
 
 In addition, references of tools and data used in this pipeline are as follows:

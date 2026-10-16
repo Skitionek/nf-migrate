@@ -20,13 +20,6 @@ operations = [
         '.github/ISSUE_TEMPLATE/bug_report.md',
         old="""\
 <!--
-# nf-core/{{pipeline_name}} bug report
-
-Hi there!
-
-Thanks for telling us about a problem with the pipeline.
-
-Please delete this text and anything that's not relevant from the template below:
 """,
         new="""\
 ---
@@ -36,10 +29,16 @@ labels: bug
 ---
 
 <!--
-# nf-core/{{pipeline_name}} bug report
+""",
+    ),
+    Replace(
+        '.github/ISSUE_TEMPLATE/bug_report.md',
+        old="""\
+Thanks for telling us about a problem with the pipeline.
 
-Hi there!
-
+Please delete this text and anything that's not relevant from the template below:
+""",
+        new="""\
 Thanks for telling us about a problem with the pipeline.
 Please delete this text and anything that's not relevant from the template below:
 """,
@@ -61,31 +60,6 @@ contact_links:
         '.github/ISSUE_TEMPLATE/feature_request.md',
         old="""\
 <!--
-# nf-core/{{pipeline_name}} feature request
-
-Hi there!
-
-Thanks for suggesting a new feature for the pipeline!
-Please delete this text and anything that's not relevant from the template below:
--->
-
-## Is your feature request related to a problem? Please describe
-
-<!-- A clear and concise description of what the problem is. -->
-
-<!-- e.g. [I'm always frustrated when ...] -->
-
-## Describe the solution you'd like
-
-<!-- A clear and concise description of what you want to happen. -->
-
-## Describe alternatives you've considered
-
-<!-- A clear and concise description of any alternative solutions or features you've considered. -->
-
-## Additional context
-
-<!-- Add any other context about the feature request here. -->
 """,
         new="""\
 ---
@@ -95,31 +69,6 @@ labels: enhancement
 ---
 
 <!--
-# nf-core/{{pipeline_name}} feature request
-
-Hi there!
-
-Thanks for suggesting a new feature for the pipeline!
-Please delete this text and anything that's not relevant from the template below:
--->
-
-## Is your feature request related to a problem? Please describe
-
-<!-- A clear and concise description of what the problem is. -->
-
-<!-- e.g. [I'm always frustrated when ...] -->
-
-## Describe the solution you'd like
-
-<!-- A clear and concise description of what you want to happen. -->
-
-## Describe alternatives you've considered
-
-<!-- A clear and concise description of any alternative solutions or features you've considered. -->
-
-## Additional context
-
-<!-- Add any other context about the feature request here. -->
 """,
     ),
     Replace(

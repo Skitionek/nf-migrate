@@ -19,54 +19,10 @@ operations = [
     Replace(
         '.editorconfig',
         old="""\
-root = true
-
-[*]
-charset = utf-8
-end_of_line = lf
-insert_final_newline = true
-trim_trailing_whitespace = true
-indent_size = 4
-indent_style = space
-
-[*.{md,yml,yaml,html,css,scss,js}]
-indent_size = 2
-
-# These files are edited and tested upstream in nf-core/modules
-[/modules/nf-core/**]
-charset = unset
-end_of_line = unset
-insert_final_newline = unset
-trim_trailing_whitespace = unset
-indent_style = unset
-indent_size = unset
-
 [/assets/email*]
 indent_size = unset
 """,
         new="""\
-root = true
-
-[*]
-charset = utf-8
-end_of_line = lf
-insert_final_newline = true
-trim_trailing_whitespace = true
-indent_size = 4
-indent_style = space
-
-[*.{md,yml,yaml,html,css,scss,js}]
-indent_size = 2
-
-# These files are edited and tested upstream in nf-core/modules
-[/modules/nf-core/**]
-charset = unset
-end_of_line = unset
-insert_final_newline = unset
-trim_trailing_whitespace = unset
-indent_style = unset
-indent_size = unset
-
 [/assets/email*]
 indent_size = unset
 
@@ -140,13 +96,10 @@ indent_style = unset
     Replace(
         '.github/workflows/fix-linting.yml',
         old="""\
-        with:
           token: ${{ secrets.nf_core_bot_auth_token }}
 
-      # Action runs on the issue comment, so we don't get the PR by default
 """,
         new="""\
-        with:
           token: ${{ secrets.nf_core_bot_auth_token }}
 
       # indication that the linting is being fixed
@@ -156,7 +109,6 @@ indent_style = unset
           comment-id: ${{ github.event.comment.id }}
           reactions: eyes
 
-      # Action runs on the issue comment, so we don't get the PR by default
 """,
     ),
     Replace(
@@ -232,13 +184,18 @@ indent_style = unset
     Replace(
         '.github/workflows/fix-linting.yml',
         old="""\
-          git status
           git commit -m "[automated] Fix linting with Prettier"
+""",
+        new="""\
+          git commit -m "[automated] Fix code linting"
+""",
+    ),
+    Replace(
+        '.github/workflows/fix-linting.yml',
+        old="""\
           git push
 """,
         new="""\
-          git status
-          git commit -m "[automated] Fix code linting"
           git push
 
       - name: react if linting errors were fixed
@@ -362,15 +319,18 @@ vscode:
     Replace(
         '.pre-commit-config.yaml',
         old="""\
-  - repo: https://github.com/pre-commit/mirrors-prettier
     rev: "v2.7.1"
-    hooks:
+""",
+        new="""\
+    rev: "v3.1.0"
+""",
+    ),
+    Replace(
+        '.pre-commit-config.yaml',
+        old="""\
       - id: prettier
 """,
         new="""\
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: "v3.1.0"
-    hooks:
       - id: prettier
   - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
     rev: "2.7.3"
@@ -449,11 +409,10 @@ vscode:
     Replace(
         'lib/WorkflowMain.groovy',
         old="""\
-        return null
     }
 }
 """,
-        new='        return null\n    }\n\n    //\n    // Exit pipeline if --profile contains spaces\n    //\n    private static void checkProfile(profile, args, log) {\n        if (profile.endsWith(\',\')) {\n            Nextflow.error "Profile cannot end with a trailing comma. Please remove the comma from the end of the profile string.\\nHint: A common mistake is to provide multiple values to `-profile` separated by spaces. Please use commas to separate profiles instead,e.g., `-profile docker,test`."\n        }\n        if (args[0]) {\n            log.warn "nf-core pipelines do not accept positional arguments. The positional argument `${args[0]}` has been detected.\\n      Hint: A common mistake is to provide multiple values to `-profile` separated by spaces. Please use commas to separate profiles instead,e.g., `-profile docker,test`."\n        }\n    }\n}\n',
+        new='    }\n\n    //\n    // Exit pipeline if --profile contains spaces\n    //\n    private static void checkProfile(profile, args, log) {\n        if (profile.endsWith(\',\')) {\n            Nextflow.error "Profile cannot end with a trailing comma. Please remove the comma from the end of the profile string.\\nHint: A common mistake is to provide multiple values to `-profile` separated by spaces. Please use commas to separate profiles instead,e.g., `-profile docker,test`."\n        }\n        if (args[0]) {\n            log.warn "nf-core pipelines do not accept positional arguments. The positional argument `${args[0]}` has been detected.\\n      Hint: A common mistake is to provide multiple values to `-profile` separated by spaces. Please use commas to separate profiles instead,e.g., `-profile docker,test`."\n        }\n    }\n}\n',
     ),
     ManualStep(
         'lib/nfcore_external_java_deps.jar',
@@ -545,17 +504,14 @@ known-first-party = ["nf_core"]
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-        NfcoreTemplate.IM_notification(workflow, params, summary_params, projectDir, log)
     }
 }
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     THE END
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """,
         new="""\
-        NfcoreTemplate.IM_notification(workflow, params, summary_params, projectDir, log)
     }
 }
 
@@ -569,7 +525,6 @@ workflow.onError {
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     THE END
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """,
     ),
     NfCoreComponent(

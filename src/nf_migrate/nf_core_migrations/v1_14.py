@@ -44,19 +44,15 @@ operations = [
     Replace(
         '.github/workflows/ci.yml',
         old="""\
-  release:
     types: [published]
 
-jobs:
 """,
         new="""\
-  release:
     types: [published]
 
 # Uncomment if we need an edge release of Nextflow again
 # env: NXF_EDGE: 1
 
-jobs:
 """,
     ),
     Replace(

@@ -14,7 +14,11 @@ from difflib import SequenceMatcher
 from fnmatch import fnmatch
 from pathlib import Path
 
-from nf_migrate.operations import NF_CORE_MODULES_REPO, find_line_aligned
+from nf_migrate.operations import (
+    NF_CORE_MODULES_REPO,
+    find_line_aligned,
+    is_inside_match,
+)
 from nf_migrate.variables import placeholder, template_variables, templatize
 from nf_migrate.version import NF_CORE_YML, parse_version, stamp_version
 
@@ -305,16 +309,17 @@ def _choose_unique_context(
                 hunk, opcodes, old_lines, new_lines
             )
             # Hunks apply top to bottom, so the old block has to be unique
-            # in the file with the hunks above it already applied. It must
-            # also be gone from the new file, or running the migration
-            # again would apply it twice instead of finding it applied.
+            # in the file with the hunks above it already applied. In the
+            # new file it may only remain inside the new block, which
+            # Replace reads as applied; anywhere else, running the
+            # migration again would apply it twice.
             text_when_applied = _text_before_hunk(
                 hunk, opcodes, old_lines, new_lines
             )
             is_unambiguous = (
                 _is_unique(text_when_applied, old_block)
                 and _is_unique(new_text, new_block)
-                and not find_line_aligned(new_text, old_block)
+                and _only_inside_new_block(new_text, old_block, new_block)
             )
             if is_unambiguous:
                 found_unique_context = True
@@ -363,6 +368,16 @@ def _hunk_blocks(
         new_start - hunk.context_before : new_end + hunk.context_after
     ]
     return "".join(old_block), "".join(new_block)
+
+
+def _only_inside_new_block(
+    new_text: str, old_block: str, new_block: str
+) -> bool:
+    new_positions = find_line_aligned(new_text, new_block)
+    return all(
+        is_inside_match(position, len(old_block), new_positions, new_block)
+        for position in find_line_aligned(new_text, old_block)
+    )
 
 
 def _text_before_hunk(

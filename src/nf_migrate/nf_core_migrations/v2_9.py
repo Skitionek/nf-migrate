@@ -159,13 +159,11 @@ tasks:
     Replace(
         'CITATIONS.md',
         old="""\
-- [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
 
 - [MultiQC](https://pubmed.ncbi.nlm.nih.gov/27312411/)
   > Ewels P, Magnusson M, Lundin S, Käller M. MultiQC: summarize analysis results for multiple tools and samples in a single report. Bioinformatics. 2016 Oct 1;32(19):3047-8. doi: 10.1093/bioinformatics/btw354. Epub 2016 Jun 16. PubMed PMID: 27312411; PubMed Central PMCID: PMC5039924.
 """,
         new="""\
-- [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
 
   > Andrews, S. (2010). FastQC: A Quality Control Tool for High Throughput Sequence Data [Online]. Available online https://www.bioinformatics.babraham.ac.uk/projects/fastqc/.
 
@@ -177,13 +175,11 @@ tasks:
     Replace(
         'CITATIONS.md',
         old="""\
-- [Docker](https://dl.acm.org/doi/10.5555/2600239.2600241)
 
 - [Singularity](https://pubmed.ncbi.nlm.nih.gov/28494014/)
   > Kurtzer GM, Sochat V, Bauer MW. Singularity: Scientific containers for mobility of compute. PLoS One. 2017 May 11;12(5):e0177459. doi: 10.1371/journal.pone.0177459. eCollection 2017. PubMed PMID: 28494014; PubMed Central PMCID: PMC5426675.
 """,
         new="""\
-- [Docker](https://dl.acm.org/doi/10.5555/2600239.2600241)
 
   > Merkel, D. (2014). Docker: lightweight linux containers for consistent development and deployment. Linux Journal, 2014(239), 2. doi: 10.5555/2600239.2600241.
 
@@ -449,8 +445,16 @@ genome: 'GRCh37'
     ),
     Replace(
         'lib/WorkflowSentinelpipe.groovy',
-        old='\n        meta["doi_text"] = meta.manifest_map.doi ? "(doi: <a href=\\\'https://doi.org/${meta.manifest_map.doi}\\\'>${meta.manifest_map.doi}</a>)" : ""\n        meta["nodoi_text"] = meta.manifest_map.doi ? "": "<li>If available, make sure to update the text to include the Zenodo DOI of version of the pipeline used. </li>"\n\n        def methods_text = mqc_methods_yaml.text\n',
-        new='\n        // Pipeline DOI\n        meta["doi_text"] = meta.manifest_map.doi ? "(doi: <a href=\\\'https://doi.org/${meta.manifest_map.doi}\\\'>${meta.manifest_map.doi}</a>)" : ""\n        meta["nodoi_text"] = meta.manifest_map.doi ? "": "<li>If available, make sure to update the text to include the Zenodo DOI of version of the pipeline used. </li>"\n\n        // Tool references\n        meta["tool_citations"] = ""\n        meta["tool_bibliography"] = ""\n\n        // TODO Only uncomment below if logic in toolCitationText/toolBibliographyText has been filled!\n        //meta["tool_citations"] = toolCitationText(params).replaceAll(", \\\\.", ".").replaceAll("\\\\. \\\\.", ".").replaceAll(", \\\\.", ".")\n        //meta["tool_bibliography"] = toolBibliographyText(params)\n\n\n        def methods_text = mqc_methods_yaml.text\n',
+        old='\n        meta["doi_text"] = meta.manifest_map.doi ? "(doi: <a href=\\\'https://doi.org/${meta.manifest_map.doi}\\\'>${meta.manifest_map.doi}</a>)" : ""\n',
+        new='\n        // Pipeline DOI\n        meta["doi_text"] = meta.manifest_map.doi ? "(doi: <a href=\\\'https://doi.org/${meta.manifest_map.doi}\\\'>${meta.manifest_map.doi}</a>)" : ""\n',
+    ),
+    Replace(
+        'lib/WorkflowSentinelpipe.groovy',
+        old="""\
+        meta["nodoi_text"] = meta.manifest_map.doi ? "": "<li>If available, make sure to update the text to include the Zenodo DOI of version of the pipeline used. </li>"
+
+""",
+        new='        meta["nodoi_text"] = meta.manifest_map.doi ? "": "<li>If available, make sure to update the text to include the Zenodo DOI of version of the pipeline used. </li>"\n\n        // Tool references\n        meta["tool_citations"] = ""\n        meta["tool_bibliography"] = ""\n\n        // TODO Only uncomment below if logic in toolCitationText/toolBibliographyText has been filled!\n        //meta["tool_citations"] = toolCitationText(params).replaceAll(", \\\\.", ".").replaceAll("\\\\. \\\\.", ".").replaceAll(", \\\\.", ".")\n        //meta["tool_bibliography"] = toolBibliographyText(params)\n\n\n',
     ),
     Replace(
         'main.nf',
@@ -557,13 +561,10 @@ WorkflowMain.initialise(workflow, params, log)
     Replace(
         'nextflow.config',
         old="""\
-    max_cpus                   = 16
     max_time                   = '240.h'
 
-}
 """,
         new="""\
-    max_cpus                   = 16
     max_time                   = '240.h'
 
     // Schema validation default options
@@ -573,7 +574,6 @@ WorkflowMain.initialise(workflow, params, log)
     validationShowHiddenParams       = false
     validate_params                  = true
 
-}
 """,
     ),
     Replace(

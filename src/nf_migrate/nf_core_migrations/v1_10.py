@@ -39,19 +39,20 @@ For further information/help, please consult the [nf-core/{{pipeline_name}} docu
         '.github/ISSUE_TEMPLATE/bug_report.md',
         old="""\
 # nf-core/{{pipeline_name}} bug report
-
-Hi there!
-
+""",
+        new="""\
+<!--
+# nf-core/{{pipeline_name}} bug report
+""",
+    ),
+    Replace(
+        '.github/ISSUE_TEMPLATE/bug_report.md',
+        old="""\
 Thanks for telling us about a problem with the pipeline.
 Please delete this text and anything that's not relevant from the template below:
 
 """,
         new="""\
-<!--
-# nf-core/{{pipeline_name}} bug report
-
-Hi there!
-
 Thanks for telling us about a problem with the pipeline.
 
 Please delete this text and anything that's not relevant from the template below:
@@ -110,20 +111,19 @@ Add any other context about the problem here.
         '.github/ISSUE_TEMPLATE/feature_request.md',
         old="""\
 # nf-core/{{pipeline_name}} feature request
-
-Hi there!
-
-Thanks for suggesting a new feature for the pipeline!
-Please delete this text and anything that's not relevant from the template below:
-
 """,
         new="""\
 <!--
 # nf-core/{{pipeline_name}} feature request
+""",
+    ),
+    Replace(
+        '.github/ISSUE_TEMPLATE/feature_request.md',
+        old="""\
+Please delete this text and anything that's not relevant from the template below:
 
-Hi there!
-
-Thanks for suggesting a new feature for the pipeline!
+""",
+        new="""\
 Please delete this text and anything that's not relevant from the template below:
 -->
 
@@ -178,22 +178,19 @@ Add any other context about the feature request here.
         '.github/PULL_REQUEST_TEMPLATE.md',
         old="""\
 # nf-core/{{pipeline_name}} pull request
-
-Many thanks for contributing to nf-core/{{pipeline_name}}!
-
-Please fill in the appropriate checklist below (delete whatever is not relevant).
-These are the most common things requested on pull requests (PRs).
-
-## PR checklist
 """,
         new="""\
 <!--
 # nf-core/{{pipeline_name}} pull request
+""",
+    ),
+    Replace(
+        '.github/PULL_REQUEST_TEMPLATE.md',
+        old="""\
 
-Many thanks for contributing to nf-core/{{pipeline_name}}!
-
-Please fill in the appropriate checklist below (delete whatever is not relevant).
-These are the most common things requested on pull requests (PRs).
+## PR checklist
+""",
+        new="""\
 
 Remember that PRs should be made against the dev branch, unless you're preparing a pipeline release.
 
@@ -566,23 +563,18 @@ FROM nfcore/base:1.10
     Replace(
         'Dockerfile',
         old="""\
-COPY environment.yml /
 RUN conda env create -f /environment.yml && conda clean -a
-
-# Add conda installation dir to PATH (instead of doing 'conda activate')
-ENV PATH /opt/conda/envs/nf-core-{{pipeline_name}}-{{pipeline_version}}/bin:$PATH
-
-# Dump the details of the installed packages to a file for posterity
+""",
+        new="""\
+RUN conda env create --quiet -f /environment.yml && conda clean -a
+""",
+    ),
+    Replace(
+        'Dockerfile',
+        old="""\
 RUN conda env export --name nf-core-{{pipeline_name}}-{{pipeline_version}} > nf-core-{{pipeline_name}}-{{pipeline_version}}.yml
 """,
         new="""\
-COPY environment.yml /
-RUN conda env create --quiet -f /environment.yml && conda clean -a
-
-# Add conda installation dir to PATH (instead of doing 'conda activate')
-ENV PATH /opt/conda/envs/nf-core-{{pipeline_name}}-{{pipeline_version}}/bin:$PATH
-
-# Dump the details of the installed packages to a file for posterity
 RUN conda env export --name nf-core-{{pipeline_name}}-{{pipeline_version}} > nf-core-{{pipeline_name}}-{{pipeline_version}}.yml
 
 # Instruct R processes to use these empty files instead of clashing with a local version
@@ -784,17 +776,13 @@ import io
     Replace(
         'bin/markdown_to_html.py',
         old="""\
-    )
     return html
 
-def wrap_html(contents):
 """,
         new="""\
-    )
     return html
 
 
-def wrap_html(contents):
 """,
     ),
     Replace(
@@ -818,13 +806,11 @@ def wrap_html(contents):
         old="""\
     return parser.parse_args(args)
 
-def main(args=None):
 """,
         new="""\
     return parser.parse_args(args)
 
 
-def main(args=None):
 """,
     ),
     Replace(
@@ -970,18 +956,14 @@ You can find a lot more documentation about installing, configuring and running 
     Replace(
         'docs/output.md',
         old="""\
-
 This document describes the output produced by the pipeline. Most of the plots are taken from the MultiQC report, which summarises results at the end of the pipeline.
 
-<!-- TODO nf-core: Write this documentation describing your workflow's output -->
 """,
         new="""\
-
 This document describes the output produced by the pipeline. Most of the plots are taken from the MultiQC report, which summarises results at the end of the pipeline.
 
 The directories listed below will be created in the results directory after the pipeline has finished. All paths are relative to the top-level results directory.
 
-<!-- TODO nf-core: Write this documentation describing your workflow's output -->
 """,
     ),
     Replace(

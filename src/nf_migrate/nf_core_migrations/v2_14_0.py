@@ -179,8 +179,19 @@ indent_style = unset
     ),
     Replace(
         '.github/workflows/download_pipeline.yml',
-        old="\n      - name: Run the downloaded pipeline\n        env:\n          NXF_SINGULARITY_CACHEDIR: ./\n          NXF_SINGULARITY_HOME_MOUNT: true\n        run: nextflow run ./${{ env.REPOTITLE_LOWERCASE }}/$( sed 's/\\W/_/g' <<< ${{ env.REPO_BRANCH }}) -stub -profile test,singularity --outdir ./results\n",
-        new="\n      - name: Run the downloaded pipeline (stub)\n        id: stub_run_pipeline\n        continue-on-error: true\n        env:\n          NXF_SINGULARITY_CACHEDIR: ./\n          NXF_SINGULARITY_HOME_MOUNT: true\n        run: nextflow run ./${{ env.REPOTITLE_LOWERCASE }}/$( sed 's/\\W/_/g' <<< ${{ env.REPO_BRANCH }}) -stub -profile test,singularity --outdir ./results\n      - name: Run the downloaded pipeline (stub run not supported)\n        id: run_pipeline\n        if: ${{ job.steps.stub_run_pipeline.status == failure() }}\n        env:\n          NXF_SINGULARITY_CACHEDIR: ./\n          NXF_SINGULARITY_HOME_MOUNT: true\n        run: nextflow run ./${{ env.REPOTITLE_LOWERCASE }}/$( sed 's/\\W/_/g' <<< ${{ env.REPO_BRANCH }}) -profile test,singularity --outdir ./results\n",
+        old="""\
+      - name: Run the downloaded pipeline
+""",
+        new="""\
+      - name: Run the downloaded pipeline (stub)
+        id: stub_run_pipeline
+        continue-on-error: true
+""",
+    ),
+    Replace(
+        '.github/workflows/download_pipeline.yml',
+        old="        run: nextflow run ./${{ env.REPOTITLE_LOWERCASE }}/$( sed 's/\\W/_/g' <<< ${{ env.REPO_BRANCH }}) -stub -profile test,singularity --outdir ./results\n",
+        new="        run: nextflow run ./${{ env.REPOTITLE_LOWERCASE }}/$( sed 's/\\W/_/g' <<< ${{ env.REPO_BRANCH }}) -stub -profile test,singularity --outdir ./results\n      - name: Run the downloaded pipeline (stub run not supported)\n        id: run_pipeline\n        if: ${{ job.steps.stub_run_pipeline.status == failure() }}\n        env:\n          NXF_SINGULARITY_CACHEDIR: ./\n          NXF_SINGULARITY_HOME_MOUNT: true\n        run: nextflow run ./${{ env.REPOTITLE_LOWERCASE }}/$( sed 's/\\W/_/g' <<< ${{ env.REPO_BRANCH }}) -profile test,singularity --outdir ./results\n",
     ),
     Replace(
         '.github/workflows/fix-linting.yml',

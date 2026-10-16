@@ -302,6 +302,39 @@ def test_a_hunk_reads_as_already_applied_on_the_new_template(
     assert workspace.read("output.md") == new_text
 
 
+def test_an_insertion_ending_like_its_context_keeps_small_context(
+    tmp_path: Path,
+) -> None:
+    # Given a step inserted before a job, ending in the blank line that also
+    # precedes it (nf-core/tools 4.0.3 did this to nf-test.yml)
+    old_text = (
+        "jobs:\n  test:\n    steps:\n      - run: a\n\n"
+        "  confirm:\n    needs: [test]\n"
+    )
+    new_text = (
+        "jobs:\n  test:\n    steps:\n      - run: a\n\n"
+        "      - name: upload\n        run: c\n\n"
+        "  confirm:\n    needs: [test]\n"
+    )
+    (tmp_path / "nf-test.yml").write_text(new_text)
+
+    # When
+    hunks = diff_hunks(old_text, new_text)
+    rerun = [
+        Replace("nf-test.yml", old, new).apply(Workspace(tmp_path)).outcome
+        for old, new in hunks
+    ]
+
+    # Then the hunk does not grow into lines a pipeline may have changed
+    assert hunks == [
+        (
+            "\n  confirm:\n",
+            "\n      - name: upload\n        run: c\n\n  confirm:\n",
+        )
+    ]
+    assert rerun == [Outcome.ALREADY_APPLIED]
+
+
 # Renders of releases before nf-core/tools 3.0
 RENDER_METADATA_2_2 = """\
 nf_core_version: '2.2'

@@ -339,8 +339,11 @@ $commandLine</pre
     ),
     Replace(
         'bin/check_samplesheet.py',
-        old='                    row[self._sample_col] = f"{sample}_T{seen[sample]}"\n\n\ndef sniff_format(handle):\n    """\n    Detect the tabular format.\n',
-        new='                    row[self._sample_col] = f"{sample}_T{seen[sample]}"\n\n\ndef read_head(handle, num_lines=10):\n    """Read the specified number of lines from the current position in the file."""\n    lines = []\n    for idx, line in enumerate(handle):\n        if idx == num_lines:\n            break\n        lines.append(line)\n    return "".join(lines)\n\n\ndef sniff_format(handle):\n    """\n    Detect the tabular format.\n',
+        old="""\
+
+def sniff_format(handle):
+""",
+        new='\ndef read_head(handle, num_lines=10):\n    """Read the specified number of lines from the current position in the file."""\n    lines = []\n    for idx, line in enumerate(handle):\n        if idx == num_lines:\n            break\n        lines.append(line)\n    return "".join(lines)\n\n\ndef sniff_format(handle):\n',
     ),
     Replace(
         'bin/check_samplesheet.py',

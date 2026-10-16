@@ -185,13 +185,13 @@ with `--allow-conflicts` gives:
 
 | Pipeline | Commit | Applied | Already applied | Conflict | Manual step |
 |---|---|---|---|---|---|
-| slamseq | `081d363` | 1314 | 22 | 744 | 101 |
-| imcyto | `33eeade` | 1284 | 27 | 769 | 101 |
-| mnaseseq | `eaaeaeb` | 1350 | 18 | 712 | 101 |
+| slamseq | `081d363` | 1338 | 23 | 743 | 101 |
+| imcyto | `33eeade` | 1309 | 28 | 767 | 101 |
+| mnaseseq | `eaaeaeb` | 1374 | 19 | 711 | 101 |
 
 As in the 3.x merges above, the conflicts are in files the pipeline owns:
 for slamseq, `nextflow.config`, README.md, `docs/usage.md` and `main.nf`
-account for 537 of the 744. Most of them follow from an earlier conflict:
+account for 534 of the 743. Most of them follow from an earlier conflict:
 once a file is held back, later releases' changes to it no longer find
 their text.
 

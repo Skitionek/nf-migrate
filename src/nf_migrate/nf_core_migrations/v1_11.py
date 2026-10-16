@@ -158,7 +158,6 @@ The nf-core/{{pipeline_name}} documentation is split into the following pages:
         old="""\
 # nf-core/{{pipeline_name}}: Output
 
-This document describes the output produced by the pipeline. Most of the plots are taken from the MultiQC report, which summarises results at the end of the pipeline.
 """,
         new="""\
 # nf-core/{{pipeline_name}}: Output
@@ -169,7 +168,6 @@ This document describes the output produced by the pipeline. Most of the plots a
 
 ## Introduction
 
-This document describes the output produced by the pipeline. Most of the plots are taken from the MultiQC report, which summarises results at the end of the pipeline.
 """,
     ),
     Replace(
@@ -186,7 +184,6 @@ This document describes the output produced by the pipeline. Most of the plots a
         old="""\
 # nf-core/{{pipeline_name}}: Usage
 
-## Introduction
 """,
         new="""\
 # nf-core/{{pipeline_name}}: Usage
@@ -195,7 +192,6 @@ This document describes the output produced by the pipeline. Most of the plots a
 
 > _Documentation of pipeline parameters is generated automatically from the pipeline schema and can no longer be found in markdown files._
 
-## Introduction
 """,
     ),
     Replace(
@@ -210,12 +206,10 @@ Several generic profiles are bundled with the pipeline which instruct the pipeli
     Replace(
         'docs/usage.md',
         old="""\
-  * A generic configuration profile to be used with [Singularity](https://sylabs.io/docs/)
   * Pulls software from Docker Hub: [`nfcore/{{pipeline_name}}`](https://hub.docker.com/r/nfcore/{{pipeline_name}}/)
 * `conda`
 """,
         new="""\
-  * A generic configuration profile to be used with [Singularity](https://sylabs.io/docs/)
   * Pulls software from Docker Hub: [`nfcore/{{pipeline_name}}`](https://hub.docker.com/r/nfcore/{{pipeline_name}}/)
 * `podman`
   * A generic configuration profile to be used with [Podman](https://podman.io/)
@@ -244,19 +238,15 @@ If you are likely to be running `nf-core` pipelines regularly it may be a good i
     Replace(
         'nextflow.config',
         old="""\
-    singularity.enabled = true
     singularity.autoMounts = true
   }
-  test { includeConfig 'conf/test.config' }
 """,
         new="""\
-    singularity.enabled = true
     singularity.autoMounts = true
   }
   podman {
     podman.enabled = true
   }
-  test { includeConfig 'conf/test.config' }
 """,
     ),
     Replace(

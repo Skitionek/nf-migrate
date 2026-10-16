@@ -32,13 +32,10 @@ operations = [
     Replace(
         '.github/workflows/download_pipeline.yml',
         old="""\
-      REPO_BRANCH: ${{ steps.get_repo_properties.outputs.REPO_BRANCH }}
     steps:
       - name: Install Nextflow
-        uses: nf-core/setup-nextflow@v2
 """,
         new="""\
-      REPO_BRANCH: ${{ steps.get_repo_properties.outputs.REPO_BRANCH }}
     steps:
       - name: Get the repository name and current branch
         id: get_repo_properties
@@ -52,7 +49,6 @@ operations = [
     needs: configure
     steps:
       - name: Install Nextflow
-        uses: nf-core/setup-nextflow@v2
 """,
     ),
     Replace(
@@ -91,19 +87,15 @@ operations = [
     Replace(
         '.github/workflows/download_pipeline.yml',
         old="""\
-      - name: Inspect download
         run: tree ./${{ needs.configure.outputs.REPOTITLE_LOWERCASE }}
 
-      - name: Count the downloaded number of container images
 """,
         new="""\
-      - name: Inspect download
         run: tree ./${{ needs.configure.outputs.REPOTITLE_LOWERCASE }}
 
       - name: Inspect container images
         run: tree ./singularity_container_images | tee ./container_initial
 
-      - name: Count the downloaded number of container images
 """,
     ),
     Replace(
