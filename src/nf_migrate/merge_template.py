@@ -17,7 +17,11 @@ from pathlib import Path
 from nf_migrate.detect import Detection, detect_version
 from nf_migrate.migrations import MigrationError, load_migrations
 from nf_migrate.runner import UpgradeReport, upgrade
-from nf_migrate.version import NF_CORE_YML, parse_version
+from nf_migrate.version import (
+    NF_CORE_YML,
+    parse_subject_version,
+    parse_version,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,10 +76,7 @@ def merge_template(
     """
     base_sha = _git(repo, "rev-parse", "--verify", f"{base}^{{commit}}")
     head_sha = _git(repo, "rev-parse", "--verify", f"{head}^{{commit}}")
-    head_nf_core_yml = _git(repo, "show", f"{head_sha}:{NF_CORE_YML}")
-    target_version = parse_version(head_nf_core_yml)
-    if target_version is None:
-        raise MigrationError(f"{head} has no nf_core_version in {NF_CORE_YML}")
+    target_version = _template_version(repo, head, head_sha)
 
     chain = load_migrations(migrations_dir)
     with tempfile.TemporaryDirectory() as temporary_directory:
@@ -118,6 +119,28 @@ def merge_template(
     if start_version is None:
         start_version = detection.stamped
     return MergeResult(target_version, start_version, detection, report, commit)
+
+
+def _template_version(repo: Path, head: str, head_sha: str) -> str:
+    """The release that made the template commit `head_sha`."""
+    # Templates from before nf-core/tools 1.13 have no .nf-core.yml, and
+    # those before 2.14 have one without nf_core_version.
+    has_nf_core_yml = _git(repo, "ls-tree", head_sha, "--", NF_CORE_YML)
+    if has_nf_core_yml:
+        nf_core_yml = _git(repo, "show", f"{head_sha}:{NF_CORE_YML}")
+        version = parse_version(nf_core_yml)
+        if version is not None:
+            return version
+
+    subject = _git(repo, "log", "-1", "--format=%s", head_sha)
+    version = parse_subject_version(subject)
+    if version is None:
+        raise MigrationError(
+            f"cannot tell which nf-core/tools release made {head}: no "
+            f"nf_core_version in its {NF_CORE_YML} and its commit subject "
+            f"({subject!r}) does not say 'nf-core/tools, version X'"
+        )
+    return version
 
 
 def _commit_merge(
