@@ -206,8 +206,186 @@ class Replace:
         if len(old_positions) > 1:
             message = f"old text found {len(old_positions)} times"
             return OperationResult(path, Outcome.CONFLICT, message, change)
-        message = "old text not found"
+        return _replace_ignoring_whitespace(workspace, path, old, new, change)
+
+
+@dataclass(frozen=True, slots=True)
+class WhitespaceMatch:
+    """Lines [first_line, end_line) equal a block up to whitespace."""
+
+    first_line: int
+    end_line: int
+    # How many spaces deeper the pipeline indents the block.
+    indent_shift: int
+
+
+def _replace_ignoring_whitespace(
+    workspace: Workspace, path: str, old: str, new: str, change: str
+) -> OperationResult:
+    """Fall back to matching lines without their surrounding whitespace.
+
+    Pipelines often re-indent or reformat template blocks. A match only
+    counts when every line moved by the same indentation, and the new text
+    is re-indented by that amount, so nesting (YAML, Groovy) stays intact.
+    """
+    content = workspace.read(path) or ""
+    old_matches = find_ignoring_whitespace(content, old)
+    new_matches = find_ignoring_whitespace(content, new) if new else []
+
+    if not old_matches and new_matches:
+        message = "already applied, up to whitespace"
+        return OperationResult(path, Outcome.ALREADY_APPLIED, message, change)
+    if len(old_matches) == 1:
+        match = old_matches[0]
+        lines = content.splitlines(keepends=True)
+        reindented = reindent(new, match.indent_shift)
+        updated = lines[: match.first_line] + [reindented]
+        updated += lines[match.end_line :]
+        workspace.write(path, "".join(updated))
+        message = "matched ignoring whitespace"
+        return OperationResult(path, Outcome.APPLIED, message, change)
+    if len(old_matches) > 1:
+        message = f"old text found {len(old_matches)} times ignoring whitespace"
         return OperationResult(path, Outcome.CONFLICT, message, change)
+
+    anchored = _replace_anchored_on_one_side(workspace, path, old, new, change)
+    if anchored is not None:
+        return anchored
+    message = "old text not found"
+    return OperationResult(path, Outcome.CONFLICT, message, change)
+
+
+def _replace_anchored_on_one_side(
+    workspace: Workspace, path: str, old: str, new: str, change: str
+) -> OperationResult | None:
+    """Fall back to the context on one side of the change only.
+
+    A hunk keeps context lines around its change, and a pipeline that edited
+    the lines on one side (say, added its own keys after the template's)
+    breaks the match although the change itself still fits. Dropping that
+    side keeps the match exact and unique on the other; a side made only of
+    punctuation, like a closing brace, is too weak to anchor on.
+    """
+    content = workspace.read(path) or ""
+    old_lines = old.splitlines(keepends=True)
+    new_lines = new.splitlines(keepends=True)
+    shared_before = _shared_prefix_length(old_lines, new_lines)
+    shared_after = _shared_prefix_length(
+        old_lines[shared_before:][::-1], new_lines[shared_before:][::-1]
+    )
+    context_before = old_lines[:shared_before]
+    context_after = old_lines[len(old_lines) - shared_after :]
+    removed = old_lines[shared_before : len(old_lines) - shared_after]
+    added = new_lines[shared_before : len(new_lines) - shared_after]
+
+    candidates = []
+    if shared_after and _is_substantial(context_before):
+        candidates.append(
+            (context_before + removed, context_before + added, "before")
+        )
+    if shared_before and _is_substantial(context_after):
+        candidates.append(
+            (removed + context_after, added + context_after, "after")
+        )
+
+    for old_part_lines, new_part_lines, side in candidates:
+        old_part = "".join(old_part_lines)
+        new_part = "".join(new_part_lines)
+        new_positions = find_line_aligned(content, new_part)
+        old_positions = [
+            position
+            for position in find_line_aligned(content, old_part)
+            if not is_inside_match(
+                position, len(old_part), new_positions, new_part
+            )
+        ]
+        # Without added lines the new part is only the anchor, which proves
+        # nothing about whether the change was made.
+        if not old_positions and new_positions and added:
+            message = f"already applied, anchored on the lines {side}"
+            return OperationResult(
+                path, Outcome.ALREADY_APPLIED, message, change
+            )
+        if len(old_positions) == 1:
+            start = old_positions[0]
+            end = start + len(old_part)
+            workspace.write(path, content[:start] + new_part + content[end:])
+            message = f"anchored on the lines {side} only"
+            return OperationResult(path, Outcome.APPLIED, message, change)
+    return None
+
+
+def _shared_prefix_length(first: list[str], second: list[str]) -> int:
+    length = 0
+    for first_line, second_line in zip(first, second, strict=False):
+        if first_line != second_line:
+            break
+        length += 1
+    return length
+
+
+def _is_substantial(lines: list[str]) -> bool:
+    return any(sum(c.isalnum() for c in line) >= 3 for line in lines)
+
+
+def find_ignoring_whitespace(content: str, block: str) -> list[WhitespaceMatch]:
+    block_lines = block.splitlines()
+    if not any(line.strip() for line in block_lines):
+        return []
+    content_lines = content.splitlines()
+    block_stripped = [line.strip() for line in block_lines]
+    content_stripped = [line.strip() for line in content_lines]
+
+    matches: list[WhitespaceMatch] = []
+    last_start = len(content_lines) - len(block_lines)
+    for first_line in range(last_start + 1):
+        # Cheap first-line check before building the window.
+        if content_stripped[first_line] != block_stripped[0]:
+            continue
+        end_line = first_line + len(block_lines)
+        if content_stripped[first_line:end_line] != block_stripped:
+            continue
+        window = content_lines[first_line:end_line]
+        shift = _uniform_indent_shift(window, block_lines)
+        if shift is not None:
+            matches.append(WhitespaceMatch(first_line, end_line, shift))
+    return matches
+
+
+def _uniform_indent_shift(
+    lines: list[str], block_lines: list[str]
+) -> int | None:
+    """The one indentation change from `block_lines` to `lines`, if any."""
+    shifts = set()
+    for line, block_line in zip(lines, block_lines, strict=True):
+        if not block_line.strip():
+            continue
+        indent = line[: len(line) - len(line.lstrip())]
+        block_indent = block_line[: len(block_line) - len(block_line.lstrip())]
+        if indent == block_indent:
+            shifts.add(0)
+        elif set(indent + block_indent) <= {" "}:
+            shifts.add(len(indent) - len(block_indent))
+        else:
+            # Tabs on one side and spaces on the other: no safe shift.
+            return None
+    if len(shifts) != 1:
+        return None
+    return shifts.pop()
+
+
+def reindent(text: str, shift: int) -> str:
+    """Move every non-blank line `shift` spaces right (or left)."""
+    lines = []
+    for line in text.splitlines(keepends=True):
+        if not line.strip() or shift == 0:
+            lines.append(line)
+        elif shift > 0:
+            lines.append(" " * shift + line)
+        else:
+            removable = len(line) - len(line.lstrip(" "))
+            lines.append(line[min(-shift, removable) :])
+    return "".join(lines)
 
 
 @dataclass(frozen=True, slots=True)

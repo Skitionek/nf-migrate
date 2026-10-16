@@ -114,6 +114,156 @@ def test_replace_conflicts_when_file_is_missing(tmp_path: Path) -> None:
     assert result.outcome is Outcome.CONFLICT
 
 
+# Replace, tolerating whitespace
+def test_replace_follows_a_block_the_pipeline_indented_deeper(
+    tmp_path: Path,
+) -> None:
+    # Given the template block nested two spaces deeper in the pipeline
+    workspace = make_workspace(
+        tmp_path, {"ci.yml": "jobs:\n    test:\n      runs-on: old\n"}
+    )
+    operation = Replace(
+        "ci.yml",
+        old="  test:\n    runs-on: old\n",
+        new="  test:\n    runs-on: new\n    timeout: 5\n",
+    )
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then the change keeps the pipeline's indentation
+    assert result.outcome is Outcome.APPLIED
+    assert workspace.read("ci.yml") == (
+        "jobs:\n    test:\n      runs-on: new\n      timeout: 5\n"
+    )
+
+
+def test_replace_ignores_trailing_whitespace(tmp_path: Path) -> None:
+    # Given
+    workspace = make_workspace(tmp_path, {"a.config": "x = 1   \ny = 2\n"})
+    operation = Replace("a.config", old="x = 1\ny = 2\n", new="x = 1\ny = 3\n")
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.APPLIED
+    assert workspace.read("a.config") == "x = 1\ny = 3\n"
+
+
+def test_replace_conflicts_when_indentation_changes_unevenly(
+    tmp_path: Path,
+) -> None:
+    # Given lines re-indented by different amounts
+    content = "test:\n      runs-on: old\n  timeout: 1\n"
+    workspace = make_workspace(tmp_path, {"ci.yml": content})
+    operation = Replace(
+        "ci.yml",
+        old="test:\n  runs-on: old\n  timeout: 1\n",
+        new="test:\n  runs-on: new\n  timeout: 1\n",
+    )
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.CONFLICT
+    assert workspace.read("ci.yml") == content
+
+
+def test_replace_is_already_applied_when_new_text_only_differs_in_whitespace(
+    tmp_path: Path,
+) -> None:
+    # Given
+    workspace = make_workspace(
+        tmp_path, {"ci.yml": "jobs:\n    test:\n      runs-on: new\n"}
+    )
+    operation = Replace(
+        "ci.yml",
+        old="  test:\n    runs-on: old\n",
+        new="  test:\n    runs-on: new\n",
+    )
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.ALREADY_APPLIED
+
+
+# Replace, anchored on one side
+def test_insertion_anchors_on_the_line_before_when_the_line_after_moved(
+    tmp_path: Path,
+) -> None:
+    # Given a pipeline that added its own env entries after the anchor
+    content = (
+        "        env:\n          NFT_WORKDIR: ${{ env.NFT_WORKDIR }}\n"
+        "          SENTIEON_AUTH: token\n        with:\n"
+    )
+    workspace = make_workspace(tmp_path, {"nf-test.yml": content})
+    operation = Replace(
+        "nf-test.yml",
+        old="          NFT_WORKDIR: ${{ env.NFT_WORKDIR }}\n        with:\n",
+        new=(
+            "          NFT_WORKDIR: ${{ env.NFT_WORKDIR }}\n"
+            "          NXF_VERSION: ${{ matrix.NXF_VER }}\n        with:\n"
+        ),
+    )
+
+    # When
+    result = operation.apply(workspace)
+    again = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.APPLIED
+    assert workspace.read("nf-test.yml") == (
+        "        env:\n          NFT_WORKDIR: ${{ env.NFT_WORKDIR }}\n"
+        "          NXF_VERSION: ${{ matrix.NXF_VER }}\n"
+        "          SENTIEON_AUTH: token\n        with:\n"
+    )
+    assert again.outcome is Outcome.ALREADY_APPLIED
+
+
+def test_one_sided_anchor_must_be_more_than_punctuation(
+    tmp_path: Path,
+) -> None:
+    # Given an insertion whose only intact context is a closing brace
+    content = "params {\n    a = 1\n}\nmine\n"
+    workspace = make_workspace(tmp_path, {"nextflow.config": content})
+    operation = Replace(
+        "nextflow.config",
+        old="}\ntemplate\n",
+        new="}\nadded\ntemplate\n",
+    )
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.CONFLICT
+    assert workspace.read("nextflow.config") == content
+
+
+def test_a_deletion_is_not_taken_as_applied_from_its_anchor_alone(
+    tmp_path: Path,
+) -> None:
+    # Given a pipeline that changed the line the template deletes
+    content = "include { FASTQC }\nmy_line\nworkflow {\n"
+    workspace = make_workspace(tmp_path, {"main.nf": content})
+    operation = Replace(
+        "main.nf",
+        old="include { FASTQC }\ntemplate_line\nworkflow_end\n",
+        new="include { FASTQC }\nworkflow_end\n",
+    )
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.CONFLICT
+    assert workspace.read("main.nf") == content
+
+
 # CreateFile
 def test_create_file_writes_a_missing_file(tmp_path: Path) -> None:
     # Given
