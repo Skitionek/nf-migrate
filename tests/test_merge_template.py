@@ -231,10 +231,11 @@ def test_unstamped_base_upgrades_from_the_detected_version(
 
 @pytest.fixture
 def fake_nf_core(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """An `nf-core` on PATH; `lint --dir D --fix NAME` writes `D/NAME.fixed`."""
+    """A `uvx` on PATH; `nf-core@V pipelines lint --dir D --fix NAME` writes
+    `D/NAME.fixed` and redraws `D/nf-core-pipeline_logo_light.png`."""
     bin_directory = tmp_path / "bin"
     bin_directory.mkdir()
-    executable = bin_directory / "nf-core"
+    executable = bin_directory / "uvx"
     executable.write_text(
         "#!/bin/sh\n"
         'echo "$@" >> "$FAKE_NF_CORE_LOG"\n'
@@ -242,6 +243,7 @@ def fake_nf_core(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         'directory="$2"\n'
         'while [ "$1" != "--fix" ]; do shift; done\n'
         'echo fixed > "$directory/$2.fixed"\n'
+        'echo redrawn > "$directory/nf-core-pipeline_logo_light.png"\n'
         # nf-core exits 1 when other lint tests still fail.
         "exit 1\n"
     )
@@ -333,3 +335,41 @@ def test_cli_lint_fix_flag_prints_the_last_commit(
     assert exit_code == 0
     subject = git(repo, "log", "--format=%s", "-1", commit)
     assert subject == "chore: regenerate container configs"
+
+
+def test_lint_fix_runs_the_template_release_of_nf_core(
+    repo: Path, migrations_dir: Path, fake_nf_core: Path
+) -> None:
+    # Given a template on 3.3.1
+
+    # When
+    merge_template(repo, "dev", "TEMPLATE", migrations_dir, lint_fix=True)
+
+    # Then
+    invocations = fake_nf_core.read_text().splitlines()
+    assert invocations
+    assert all(
+        line.startswith("nf-core@3.3.1 pipelines lint") for line in invocations
+    )
+
+
+def test_lint_fix_keeps_the_logos_of_the_template_branch(
+    repo: Path, migrations_dir: Path, fake_nf_core: Path
+) -> None:
+    # Given a template whose logo nf-core would redraw differently
+    git(repo, "checkout", "-q", "TEMPLATE")
+    commit_files(
+        repo, {"nf-core-pipeline_logo_light.png": "template logo\n"}, "add logo"
+    )
+    git(repo, "checkout", "-q", "dev")
+
+    # When
+    result = merge_template(
+        repo, "dev", "TEMPLATE", migrations_dir, lint_fix=True
+    )
+
+    # Then
+    assert result.commit is not None
+    assert git(
+        repo, "show", f"{result.commit}:nf-core-pipeline_logo_light.png"
+    ) == ("template logo")

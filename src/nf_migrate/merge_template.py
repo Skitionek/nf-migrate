@@ -109,7 +109,9 @@ def merge_template(
                     worktree, base_sha, head_sha, target_version
                 )
                 if lint_fix:
-                    commit = _commit_lint_fixes(worktree, commit)
+                    commit = _commit_lint_fixes(
+                        worktree, commit, head_sha, target_version
+                    )
         finally:
             _git(repo, "worktree", "remove", "--force", str(worktree))
 
@@ -148,19 +150,25 @@ LINT_FIXES = (
 )
 
 
-def _commit_lint_fixes(worktree: Path, merge_commit: str) -> str:
+def _commit_lint_fixes(
+    worktree: Path, merge_commit: str, head_sha: str, version: str
+) -> str:
     _git(worktree, "reset", "--quiet", "--hard", merge_commit)
     for fix_name, message in LINT_FIXES:
-        _run_lint_fix(worktree, fix_name)
+        _run_lint_fix(worktree, fix_name, version)
+        _restore_template_logos(worktree, head_sha)
         if _git(worktree, "status", "--porcelain"):
             _git(worktree, "add", "--all")
             _git(worktree, "commit", "--quiet", "-m", message)
     return _git(worktree, "rev-parse", "HEAD")
 
 
-def _run_lint_fix(worktree: Path, fix_name: str) -> None:
+def _run_lint_fix(worktree: Path, fix_name: str, version: str) -> None:
+    # CI lints with the template's own nf-core release, whose expected files
+    # differ from a newer release's, so the fix has to run that release.
     command = [
-        "nf-core",
+        "uvx",
+        f"nf-core@{version}",
         "pipelines",
         "lint",
         "--dir",
@@ -174,8 +182,24 @@ def _run_lint_fix(worktree: Path, fix_name: str) -> None:
         subprocess.run(command, check=False, capture_output=True, text=True)
     except FileNotFoundError:
         raise MigrationError(
-            "--lint-fix needs the nf-core command (pip install nf-core)"
+            "--lint-fix needs uv (uvx) to run the nf-core release of the "
+            "template"
         ) from None
+
+
+def _restore_template_logos(worktree: Path, head_sha: str) -> None:
+    # nf-core redraws the logos locally, and CI's lint then reports them as
+    # not matching the template, whose branch holds the ones it expects.
+    template_files = _git(
+        worktree, "ls-tree", "-r", "--name-only", head_sha
+    ).splitlines()
+    logos = [
+        path
+        for path in template_files
+        if path.endswith(("_logo_light.png", "_logo_dark.png"))
+    ]
+    if logos:
+        _git(worktree, "checkout", head_sha, "--", *logos)
 
 
 def _git(repo: Path, *args: str) -> str:
