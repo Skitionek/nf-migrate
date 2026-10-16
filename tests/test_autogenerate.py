@@ -630,3 +630,44 @@ def test_a_version_bump_survives_edits_to_the_rest_of_its_line(
     assert (pipeline / "nextflow.config").read_text() == (
         "plugins {\n    id 'nf-schema@2.3.0' // ours\n}\n"
     )
+
+
+def test_a_deleted_code_block_is_not_split_into_unbalanced_paragraphs(
+    tmp_path: Path,
+) -> None:
+    # Given a template release that drops a block holding a blank line
+    help_block = (
+        "validation {\n"
+        "    help {\n"
+        '        afterText = """\n'
+        "* The pipeline\n"
+        "\n"
+        "* Software dependencies\n"
+        '"""\n'
+        "    }\n"
+        "}\n"
+        "\n"
+    )
+    repo, old_ref, new_ref = _two_renders(
+        tmp_path,
+        "nextflow.config",
+        f"params {{}}\n\n{help_block}// Load modules\n",
+        "params {}\n\n// Load modules\n",
+    )
+
+    # And a pipeline that edited the second half of it
+    customised = help_block.replace("* Software dependencies", "* Our tools")
+
+    # When
+    generated = generate_migration(repo, old_ref, new_ref)
+    pipeline, report = _upgrade_with(
+        tmp_path,
+        generated.source,
+        {"nextflow.config": f"params {{}}\n\n{customised}// Load modules\n"},
+    )
+
+    # Then the block stays whole, for a maintainer to remove
+    assert not report.succeeded
+    assert (pipeline / "nextflow.config").read_text() == (
+        f"params {{}}\n\n{customised}// Load modules\n"
+    )

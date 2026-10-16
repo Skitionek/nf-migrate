@@ -194,7 +194,7 @@ The chain was tuned against every merged template update of the nf-core
 pipelines: 1,213 sync PRs from 129 pipelines, 1,127 of them from 1.9 or
 later. On the lines a template update changes, 91.2% of nf-migrate's
 operations end up where the maintainers put them, up from 89.8%;
-conflicts dropped by a quarter, from 22,785 to 17,269. Most of what is
+conflicts dropped by a quarter, from 22,785 to 17,350. Most of what is
 left is code and prose the pipeline owns (`workflows/<name>.nf`, README,
 docs), where the maintainers decided case by case. See
 [docs/validation.md](docs/validation.md) for the method, the score per

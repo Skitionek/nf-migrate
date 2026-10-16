@@ -1131,11 +1131,25 @@ workflow {{PIPELINE_NAME}} {
     MULTIQC (
 """,
     ),
-    RemoveText(
+    Replace(
         'workflows/{{pipeline_name}}.nf',
-        text="""\
+        old="""\
+    )
     multiqc_report = MULTIQC.out.report.toList()
 }
+
+""",
+        new="""\
+    )
+
+""",
+        context_before="""\
+        ch_multiqc_custom_config.toList(),
+        ch_multiqc_logo.toList()
+""",
+        context_after="""\
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """,
     ),
     Replace(

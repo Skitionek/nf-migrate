@@ -45,10 +45,10 @@ old state and every later change to it fails as well.
 
 | | Before | After |
 |---|---|---|
-| Operations agreeing with the maintainers | 89.8% (83,542 / 93,047) | 91.2% (89,235 / 97,873) |
-| Conflicts | 22,785 | 17,269 |
-| Template-changed lines handled as the maintainers did | 86.4% | 88.3% |
-| PRs replayed without any conflict | 116 / 1,127 | 152 / 1,127 |
+| Operations agreeing with the maintainers | 89.8% (83,542 / 93,047) | 91.2% (89,059 / 97,699) |
+| Conflicts | 22,785 | 17,350 |
+| Template-changed lines handled as the maintainers did | 86.4% | 88.2% |
+| PRs replayed without any conflict | 116 / 1,127 | 150 / 1,127 |
 
 Before is commit `06f8033` (nf-migrate 0.2.0 and the fixes after it);
 after is this version. The operation count grows
@@ -71,7 +71,10 @@ every release at once:
   to files that have none left.
 - **Deletions.** A template deletion is removed paragraph by paragraph
   (`RemoveText`), so the generic sections a pipeline kept go and the ones
-  it rewrote stay, as the maintainers did in 1.10 and 2.0.
+  it rewrote stay, as the maintainers did in 1.10 and 2.0. In code, only
+  paragraphs that close every bracket and string they open are removed on
+  their own; a block like 3.4.0's `validation { help { ... } }` goes as a
+  whole or not at all, so a file is never left half removed.
 - **Repeated text.** Template lines around a hunk pick the occurrence when
   a pipeline has the text twice; a one-line CI change applies to every
   copy of a step.
@@ -109,7 +112,7 @@ every PR whose range includes the release.
 | 1.11 | 20 | 87.6% | 89.8% |
 | 1.12 | 21 | 86.2% | 91.9% |
 | 1.12.1 | 25 | 80.6% | 88.4% |
-| 1.13 | 31 | 82.2% | 86.8% |
+| 1.13 | 31 | 82.2% | 86.5% |
 | 1.13.1 | 30 | 100.0% | 100.0% |
 | 1.13.2 | 20 | 92.6% | 91.4% |
 | 1.13.3 | 11 | 100.0% | 100.0% |
@@ -128,12 +131,12 @@ every PR whose range includes the release.
 | 2.7 | 52 | 93.2% | 94.8% |
 | 2.7.2 | 52 | 92.1% | 94.8% |
 | 2.8 | 57 | 88.2% | 88.6% |
-| 2.9 | 61 | 88.9% | 90.5% |
+| 2.9 | 61 | 88.9% | 90.3% |
 | 2.10 | 68 | 93.8% | 93.2% |
 | 2.11 | 71 | 90.6% | 92.8% |
 | 2.11.1 | 71 | 95.5% | 95.0% |
 | 2.12 | 73 | 94.4% | 95.2% |
-| 2.13 | 74 | 83.9% | 85.1% |
+| 2.13 | 74 | 83.9% | 85.0% |
 | 2.13.1 | 76 | 91.2% | 92.2% |
 | 2.14.0 | 75 | 94.6% | 95.4% |
 | 2.14.1 | 67 | 100.0% | 97.3% |

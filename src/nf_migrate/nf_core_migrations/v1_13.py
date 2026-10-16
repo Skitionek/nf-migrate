@@ -1329,9 +1329,23 @@ if (workflow.revision) summary['Pipeline Release'] = workflow.revision
 summary['Input']            = params.input
 """,
     ),
-    RemoveText(
+    Replace(
         'main.nf',
-        text='log.info summary.collect { k,v -> "${k.padRight(18)}: $v" }.join("\\n")\nlog.info "-\\033[2m--------------------------------------------------\\033[0m-"\n',
+        old='    summary[\'MultiQC maxsize\']   = params.max_multiqc_email_size\n}\nlog.info summary.collect { k,v -> "${k.padRight(18)}: $v" }.join("\\n")\nlog.info "-\\033[2m--------------------------------------------------\\033[0m-"\n\n// Check the hostnames against configured profiles\n',
+        new="""\
+    summary['MultiQC maxsize']   = params.max_multiqc_email_size
+}
+
+// Check the hostnames against configured profiles
+""",
+        context_before="""\
+    summary['E-mail Address']    = params.email
+    summary['E-mail on failure'] = params.email_on_fail
+""",
+        context_after="""\
+checkHostname()
+
+""",
     ),
     Replace(
         'main.nf',

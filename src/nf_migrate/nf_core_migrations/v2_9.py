@@ -600,22 +600,39 @@ input: 'data'
         }
 """,
     ),
-    RemoveText(
+    Replace(
         'lib/WorkflowMain.groovy',
-        text="""\
+        old="""\
+            String workflow_version = NfcoreTemplate.version(workflow)
+            log.info "${workflow.manifest.name} ${workflow_version}"
+            System.exit(0)
         }
 
         // Print parameter summary log to screen
         log.info paramsSummaryLog(workflow, params)
 
-""",
-    ),
-    RemoveText(
-        'lib/WorkflowMain.groovy',
-        text="""\
         // Validate workflow parameters via the JSON schema
         if (params.validate_params) {
             NfcoreSchema.validateParameters(workflow, params, log)
+        }
+
+        // Check that a -profile or Nextflow config has been provided to run the pipeline
+""",
+        new="""\
+            String workflow_version = NfcoreTemplate.version(workflow)
+            log.info "${workflow.manifest.name} ${workflow_version}"
+            System.exit(0)
+        }
+
+        // Check that a -profile or Nextflow config has been provided to run the pipeline
+""",
+        context_before="""\
+        // Print workflow version and exit on --version
+        if (params.version) {
+""",
+        context_after="""\
+        NfcoreTemplate.checkConfigProvided(workflow, log)
+
 """,
     ),
     Replace(

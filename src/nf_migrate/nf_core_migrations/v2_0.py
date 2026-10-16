@@ -1647,9 +1647,10 @@ params {
     'GRCh38' {
 """,
     ),
-    RemoveText(
+    Replace(
         'conf/igenomes.config',
-        text="""\
+        old="""\
+    }
     'GRCh38' {
       fasta       = "${params.igenomes_base}/Homo_sapiens/NCBI/GRCh38/Sequence/WholeGenomeFasta/genome.fa"
       bwa         = "${params.igenomes_base}/Homo_sapiens/NCBI/GRCh38/Sequence/BWAIndex/genome.fa"
@@ -2045,6 +2046,15 @@ params {
       mito_name   = "chrM"
     }
   }
+}
+""",
+        new="""\
+    }
+}
+""",
+        context_before="""\
+      macs_gsize  = "2.7e9"
+      blacklist   = "${projectDir}/assets/blacklists/GRCh37-blacklist.bed"
 """,
     ),
     CreateFile(
@@ -4139,9 +4149,10 @@ def check_max(obj, type) {
   } else if (type == 'time') {
 """,
     ),
-    RemoveText(
+    Replace(
         'nextflow.config',
-        text="""\
+        old="""\
+    }
   } else if (type == 'time') {
     try {
       if (obj.compareTo(params.max_time as nextflow.util.Duration) == 1)
@@ -4160,6 +4171,15 @@ def check_max(obj, type) {
       return obj
     }
   }
+}
+""",
+        new="""\
+    }
+}
+""",
+        context_before="""\
+      println "   ### ERROR ###   Max memory '${params.max_memory}' is not valid! Using default value: $obj"
+      return obj
 """,
     ),
     Replace(

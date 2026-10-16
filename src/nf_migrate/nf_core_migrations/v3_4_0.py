@@ -999,13 +999,21 @@ plugins {
     ),
         ),
     ),
-    RemoveText(
+    Replace(
         'nextflow.config',
-        text='    help {\n        enabled = true\n        command = "nextflow run nf-core/{{pipeline_name}} -profile <docker/singularity/.../institute> --input samplesheet.csv --outdir <OUTDIR>"\n        fullParameter = "help_full"\n        showHiddenParameter = "show_hidden"\n        beforeText = """\n-\\033[2m----------------------------------------------------\\033[0m-\n                                        \\033[0;32m,--.\\033[0;30m/\\033[0;32m,-.\\033[0m\n\\033[0;34m        ___     __   __   __   ___     \\033[0;32m/,-._.--~\\\'\\033[0m\n\\033[0;34m  |\\\\ | |__  __ /  ` /  \\\\ |__) |__         \\033[0;33m}  {\\033[0m\n\\033[0;34m  | \\\\| |       \\\\__, \\\\__/ |  \\\\ |___     \\033[0;32m\\\\`-._,-`-,\\033[0m\n                                        \\033[0;32m`._,._,\\\'\\033[0m\n\\033[0;35m  nf-core/{{pipeline_name}} ${manifest.version}\\033[0m\n-\\033[2m----------------------------------------------------\\033[0m-\n"""\n        afterText = """${manifest.doi ? "\\n* The pipeline\\n" : ""}${manifest.doi.tokenize(",").collect { "    https://doi.org/${it.trim().replace(\'https://doi.org/\',\'\')}"}.join("\\n")}${manifest.doi ? "\\n" : ""}\n* The nf-core framework\n    https://doi.org/10.1038/s41587-020-0439-x\n\n',
-    ),
-    RemoveText(
-        'nextflow.config',
-        text='* Software dependencies\n    https://github.com/nf-core/{{pipeline_name}}/blob/master/CITATIONS.md\n"""\n    }\n    summary {\n        beforeText = validation.help.beforeText\n        afterText = validation.help.afterText\n    }\n',
+        old='    monochromeLogs = params.monochrome_logs\n    help {\n        enabled = true\n        command = "nextflow run nf-core/{{pipeline_name}} -profile <docker/singularity/.../institute> --input samplesheet.csv --outdir <OUTDIR>"\n        fullParameter = "help_full"\n        showHiddenParameter = "show_hidden"\n        beforeText = """\n-\\033[2m----------------------------------------------------\\033[0m-\n                                        \\033[0;32m,--.\\033[0;30m/\\033[0;32m,-.\\033[0m\n\\033[0;34m        ___     __   __   __   ___     \\033[0;32m/,-._.--~\\\'\\033[0m\n\\033[0;34m  |\\\\ | |__  __ /  ` /  \\\\ |__) |__         \\033[0;33m}  {\\033[0m\n\\033[0;34m  | \\\\| |       \\\\__, \\\\__/ |  \\\\ |___     \\033[0;32m\\\\`-._,-`-,\\033[0m\n                                        \\033[0;32m`._,._,\\\'\\033[0m\n\\033[0;35m  nf-core/{{pipeline_name}} ${manifest.version}\\033[0m\n-\\033[2m----------------------------------------------------\\033[0m-\n"""\n        afterText = """${manifest.doi ? "\\n* The pipeline\\n" : ""}${manifest.doi.tokenize(",").collect { "    https://doi.org/${it.trim().replace(\'https://doi.org/\',\'\')}"}.join("\\n")}${manifest.doi ? "\\n" : ""}\n* The nf-core framework\n    https://doi.org/10.1038/s41587-020-0439-x\n\n* Software dependencies\n    https://github.com/nf-core/{{pipeline_name}}/blob/master/CITATIONS.md\n"""\n    }\n    summary {\n        beforeText = validation.help.beforeText\n        afterText = validation.help.afterText\n    }\n}\n',
+        new="""\
+    monochromeLogs = params.monochrome_logs
+}
+""",
+        context_before="""\
+validation {
+    defaultIgnoreParams = ["genomes"]
+""",
+        context_after="""\
+
+// Load modules.config for DSL2 module specific options
+""",
     ),
     Replace(
         'nextflow_schema.json',

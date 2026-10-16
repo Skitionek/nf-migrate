@@ -235,7 +235,8 @@ def _operations_for_change(
     is_yaml = change.path.endswith((".yml", ".yaml"))
     # The template file as the blocks so far leave it.
     current_text = old_text
-    for block in diff_blocks(old_text, new_text):
+    is_prose = change.path.endswith(PROSE_SUFFIXES)
+    for block in diff_blocks(old_text, new_text, is_prose):
         old_block, new_block = block.old, block.new
         text_before_block = current_text
         current_text = _apply_block(current_text, block)
@@ -517,7 +518,9 @@ def diff_hunks(old_text: str, new_text: str) -> list[tuple[str, str | None]]:
     return [(block.old, block.new) for block in diff_blocks(old_text, new_text)]
 
 
-def diff_blocks(old_text: str, new_text: str) -> list[Block]:
+def diff_blocks(
+    old_text: str, new_text: str, is_prose: bool = True
+) -> list[Block]:
     """Split a file diff into old/new blocks with minimal unique context.
 
     Each block keeps only as much surrounding context as it needs to occur
@@ -533,7 +536,9 @@ def diff_blocks(old_text: str, new_text: str) -> list[Block]:
 
     paragraphs_by_opcode: dict[int, list[str]] = {}
     for index, opcode in enumerate(opcodes):
-        paragraphs = _split_deletion(opcode, old_lines, new_lines, new_text)
+        paragraphs = _split_deletion(
+            opcode, old_lines, new_lines, new_text, is_prose
+        )
         if paragraphs is not None:
             paragraphs_by_opcode[index] = paragraphs
 
@@ -586,7 +591,11 @@ def diff_blocks(old_text: str, new_text: str) -> list[Block]:
 
 
 def _split_deletion(
-    opcode: tuple, old_lines: list[str], new_lines: list[str], new_text: str
+    opcode: tuple,
+    old_lines: list[str],
+    new_lines: list[str],
+    new_text: str,
+    is_prose: bool = True,
 ) -> list[str] | None:
     """The paragraphs of a pure deletion, if each can go on its own.
 
@@ -641,7 +650,25 @@ def _split_deletion(
         any(_has_content(line) for line in text.splitlines()) for text in texts
     ):
         return None
+    # In code, removing some paragraphs of a block and not others must not
+    # leave an unclosed brace or string behind.
+    if not is_prose and not all(_is_balanced(text) for text in texts):
+        return None
     return texts
+
+
+# Files where a paragraph stands on its own, whatever is around it.
+PROSE_SUFFIXES = (".md", ".txt")
+
+
+def _is_balanced(text: str) -> bool:
+    """Whether a code fragment closes every bracket and string it opens."""
+    if text.count('"""') % 2 or text.count("'''") % 2:
+        return False
+    return all(
+        text.count(opening) == text.count(closing)
+        for opening, closing in ("{}", "()", "[]")
+    )
 
 
 def _is_removable(
