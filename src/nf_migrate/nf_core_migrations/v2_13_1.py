@@ -164,15 +164,18 @@ The process resources can be passed on to the tool dynamically within the proces
     Replace(
         '.gitpod.yml',
         old="""\
-    - mechatroner.rainbow-csv # Highlight columns in csv files in different colors
     # - nextflow.nextflow                      # Nextflow syntax highlighting
-    - oderwat.indent-rainbow # Highlight indentation level
+""",
+        new="""\
+    # - nextflow.nextflow                    # Nextflow syntax highlighting
+""",
+    ),
+    Replace(
+        '.gitpod.yml',
+        old="""\
     - streetsidesoftware.code-spell-checker # Spelling checker for source code
 """,
         new="""\
-    - mechatroner.rainbow-csv # Highlight columns in csv files in different colors
-    # - nextflow.nextflow                    # Nextflow syntax highlighting
-    - oderwat.indent-rainbow # Highlight indentation level
     - streetsidesoftware.code-spell-checker # Spelling checker for source code
     - charliermarsh.ruff # Code linter Ruff
 """,

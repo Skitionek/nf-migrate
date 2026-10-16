@@ -515,12 +515,10 @@ Content-Disposition: inline; filename="nf-core-{{pipeline_name}}_logo_light.png"
     Replace(
         'conf/base.config',
         old="""\
-        maxRetries    = 2
     }
 }
 """,
         new="""\
-        maxRetries    = 2
     }
     withName:CUSTOM_DUMPSOFTWAREVERSIONS {
         cache = false
@@ -842,19 +840,15 @@ params {
     Replace(
         'lib/WorkflowMain.groovy',
         old="""\
-        log.info paramsSummaryLog(workflow, params, log)
 
         // Check that conda channels are set-up correctly
-        if (params.enable_conda) {
 """,
         new="""\
-        log.info paramsSummaryLog(workflow, params, log)
 
         // Check that a -profile or Nextflow config has been provided to run the pipeline
         NfcoreTemplate.checkConfigProvided(workflow, log)
 
         // Check that conda channels are set-up correctly
-        if (params.enable_conda) {
 """,
     ),
     Replace(
@@ -1017,15 +1011,11 @@ if (!params.igenomes_ignore) {
     Replace(
         'nextflow.config',
         old="""\
-    test_full { includeConfig 'conf/test_full.config' }
-}
 
 // Export these variables to prevent local Python/R libraries from conflicting with those in the container
 env {
 """,
         new="""\
-    test_full { includeConfig 'conf/test_full.config' }
-}
 
 // Load igenomes.config if required
 if (!params.igenomes_ignore) {

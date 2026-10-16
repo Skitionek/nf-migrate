@@ -19,19 +19,15 @@ operations = [
     Replace(
         '.editorconfig',
         old="""\
-indent_size = 2
 
 # These files are edited and tested upstream in nf-core/modules
-[/modules/nf-core/**]
 """,
         new="""\
-indent_size = 2
 
 [*.json]
 insert_final_newline = unset
 
 # These files are edited and tested upstream in nf-core/modules
-[/modules/nf-core/**]
 """,
     ),
     Replace(

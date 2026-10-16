@@ -19,39 +19,38 @@ operations = [
     Replace(
         '.editorconfig',
         old="""\
-[*.{md,yml,yaml,html,css,scss,js}]
 indent_size = 2
 
-# These files are edited and tested upstream in nf-core/modules
 """,
         new="""\
-[*.{md,yml,yaml,html,css,scss,js}]
 indent_size = 2
 
 
-# These files are edited and tested upstream in nf-core/modules
 """,
     ),
     Replace(
         '.editorconfig',
         old="""\
-indent_style = unset
 
 [/assets/email*]
-indent_size = unset
-
-# ignore python and markdown
 """,
         new="""\
-indent_style = unset
 
 
 
 [/assets/email*]
+""",
+    ),
+    Replace(
+        '.editorconfig',
+        old="""\
+indent_size = unset
+
+""",
+        new="""\
 indent_size = unset
 
 
-# ignore python and markdown
 """,
     ),
     Replace(
@@ -198,21 +197,18 @@ jobs:
     Replace(
         '.github/workflows/ci.yml',
         old="""\
-
       - name: Run pipeline with test data
-        # TODO nf-core: You can customise CI pipeline run tests as required
-        # For example: adding multiple test runs with different parameters
-        # Remember that you can parallelise this by using strategy.matrix
-        run: |
+""",
+        new="""\
+      - name: Run pipeline with test data (docker)
+""",
+    ),
+    Replace(
+        '.github/workflows/ci.yml',
+        old="""\
           nextflow run ${GITHUB_WORKSPACE} -profile test,docker --outdir ./results
 """,
         new="""\
-
-      - name: Run pipeline with test data (docker)
-        # TODO nf-core: You can customise CI pipeline run tests as required
-        # For example: adding multiple test runs with different parameters
-        # Remember that you can parallelise this by using strategy.matrix
-        run: |
           nextflow run ${GITHUB_WORKSPACE} -profile test,docker --outdir ./results
 
       - name: Run pipeline with test data (singularity)
@@ -269,21 +265,26 @@ name: Test successful pipeline download with 'nf-core pipelines download'
     Replace(
         '.github/workflows/download_pipeline.yml',
         old="""\
-          echo "REPO_BRANCH=${{ github.event.inputs.testbranch || 'dev' }}" >> ${GITHUB_ENV}
 
       - name: Download the pipeline
-        env:
-          NXF_SINGULARITY_CACHEDIR: ./
-        run: |
 """,
         new="""\
-          echo "REPO_BRANCH=${{ github.event.inputs.testbranch || 'dev' }}" >> ${GITHUB_ENV}
 
       - name: Make a cache directory for the container images
         run: |
           mkdir -p ./singularity_container_images
 
       - name: Download the pipeline
+""",
+    ),
+    Replace(
+        '.github/workflows/download_pipeline.yml',
+        old="""\
+        env:
+          NXF_SINGULARITY_CACHEDIR: ./
+        run: |
+""",
+        new="""\
         env:
           NXF_SINGULARITY_CACHEDIR: ./singularity_container_images
         run: |
@@ -311,13 +312,10 @@ name: Test successful pipeline download with 'nf-core pipelines download'
     Replace(
         '.github/workflows/download_pipeline.yml',
         old="""\
-      - name: Inspect download
         run: tree ./${{ env.REPOTITLE_LOWERCASE }}
 
-      - name: Run the downloaded pipeline (stub)
 """,
         new="""\
-      - name: Inspect download
         run: tree ./${{ env.REPOTITLE_LOWERCASE }}
 
       - name: Count the downloaded number of container images
@@ -327,7 +325,6 @@ name: Test successful pipeline download with 'nf-core pipelines download'
           echo "Initial container image count: $image_count"
           echo "IMAGE_COUNT_INITIAL=$image_count" >> ${GITHUB_ENV}
 
-      - name: Run the downloaded pipeline (stub)
 """,
     ),
     Replace(
@@ -337,8 +334,8 @@ name: Test successful pipeline download with 'nf-core pipelines download'
     ),
     Replace(
         '.github/workflows/download_pipeline.yml',
-        old="        env:\n          NXF_SINGULARITY_CACHEDIR: ./\n          NXF_SINGULARITY_HOME_MOUNT: true\n        run: nextflow run ./${{ env.REPOTITLE_LOWERCASE }}/$( sed 's/\\W/_/g' <<< ${{ env.REPO_BRANCH }}) -profile test,singularity --outdir ./results\n",
-        new='        env:\n          NXF_SINGULARITY_CACHEDIR: ./singularity_container_images\n          NXF_SINGULARITY_HOME_MOUNT: true\n        run: nextflow run ./${{ env.REPOTITLE_LOWERCASE }}/$( sed \'s/\\W/_/g\' <<< ${{ env.REPO_BRANCH }}) -profile test,singularity --outdir ./results\n\n      - name: Count the downloaded number of container images\n        id: count_afterwards\n        run: |\n          image_count=$(ls -1 ./singularity_container_images | wc -l | xargs)\n          echo "Post-pipeline run container image count: $image_count"\n          echo "IMAGE_COUNT_AFTER=$image_count" >> ${GITHUB_ENV}\n\n      - name: Compare container image counts\n        run: |\n          if [ "${{ env.IMAGE_COUNT_INITIAL }}" -ne "${{ env.IMAGE_COUNT_AFTER }}" ]; then\n            initial_count=${{ env.IMAGE_COUNT_INITIAL }}\n            final_count=${{ env.IMAGE_COUNT_AFTER }}\n            difference=$((final_count - initial_count))\n            echo "$difference additional container images were \\n downloaded at runtime . The pipeline has no support for offline runs!"\n            tree ./singularity_container_images\n            exit 1\n          else\n            echo "The pipeline can be downloaded successfully!"\n          fi\n',
+        old="        if: ${{ job.steps.stub_run_pipeline.status == failure() }}\n        env:\n          NXF_SINGULARITY_CACHEDIR: ./\n          NXF_SINGULARITY_HOME_MOUNT: true\n        run: nextflow run ./${{ env.REPOTITLE_LOWERCASE }}/$( sed 's/\\W/_/g' <<< ${{ env.REPO_BRANCH }}) -profile test,singularity --outdir ./results\n",
+        new='        if: ${{ job.steps.stub_run_pipeline.status == failure() }}\n        env:\n          NXF_SINGULARITY_CACHEDIR: ./singularity_container_images\n          NXF_SINGULARITY_HOME_MOUNT: true\n        run: nextflow run ./${{ env.REPOTITLE_LOWERCASE }}/$( sed \'s/\\W/_/g\' <<< ${{ env.REPO_BRANCH }}) -profile test,singularity --outdir ./results\n\n      - name: Count the downloaded number of container images\n        id: count_afterwards\n        run: |\n          image_count=$(ls -1 ./singularity_container_images | wc -l | xargs)\n          echo "Post-pipeline run container image count: $image_count"\n          echo "IMAGE_COUNT_AFTER=$image_count" >> ${GITHUB_ENV}\n\n      - name: Compare container image counts\n        run: |\n          if [ "${{ env.IMAGE_COUNT_INITIAL }}" -ne "${{ env.IMAGE_COUNT_AFTER }}" ]; then\n            initial_count=${{ env.IMAGE_COUNT_INITIAL }}\n            final_count=${{ env.IMAGE_COUNT_AFTER }}\n            difference=$((final_count - initial_count))\n            echo "$difference additional container images were \\n downloaded at runtime . The pipeline has no support for offline runs!"\n            tree ./singularity_container_images\n            exit 1\n          else\n            echo "The pipeline can be downloaded successfully!"\n          fi\n',
     ),
     Replace(
         '.github/workflows/linting.yml',
@@ -352,13 +349,10 @@ name: Test successful pipeline download with 'nf-core pipelines download'
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-          architecture: "x64"
 
       - name: Install dependencies
-        run: |
 """,
         new="""\
-          architecture: "x64"
 
       - name: read .nf-core.yml
         uses: pietrobolcato/action-read-yaml@1.0.0
@@ -367,7 +361,6 @@ name: Test successful pipeline download with 'nf-core pipelines download'
           config: ${{ github.workspace }}/.nf-core.yaml
 
       - name: Install dependencies
-        run: |
 """,
     ),
     Replace(
@@ -533,32 +526,10 @@ nf_core_version: 3.0.0
         '.prettierignore',
         old="""\
 email_template.html
-adaptivecard.json
-slackreport.json
-.nextflow*
-work/
-data/
-results/
-.DS_Store
-testing/
-testing*
-*.pyc
-bin/
 """,
         new="""\
 
 email_template.html
-adaptivecard.json
-slackreport.json
-.nextflow*
-work/
-data/
-results/
-.DS_Store
-testing/
-testing*
-*.pyc
-bin/
 """,
     ),
     Replace(
@@ -723,13 +694,10 @@ params.genomes = [:]
     Replace(
         'conf/test.config',
         old="""\
-*/
 
 params {
-    config_profile_name        = 'Test profile'
 """,
         new="""\
-*/
 
 process {
     resourceLimits = [
@@ -740,7 +708,6 @@ process {
 }
 
 params {
-    config_profile_name        = 'Test profile'
 """,
     ),
     Replace(
@@ -1145,13 +1112,10 @@ process.shell = ['/bin/bash', '-euo', 'pipefail']
     Replace(
         'nextflow.config',
         old="""\
-    version         = '{{pipeline_version}}'
     doi             = ''
 }
-
-// Load modules.config for DSL2 module specific options
 """,
-        new='    version         = \'{{pipeline_version}}\'\n    doi             = \'\'\n}\n\n// Nextflow plugins\nplugins {\n    id \'nf-schema@2.1.1\' // Validation of pipeline parameters and creation of an input channel from a sample sheet\n}\n\nvalidation {\n    defaultIgnoreParams = ["genomes"]\n    help {\n        enabled = true\n        command = "nextflow run $manifest.name -profile <docker/singularity/.../institute> --input samplesheet.csv --outdir <OUTDIR>"\n        fullParameter = "help_full"\n        showHiddenParameter = "show_hidden"\n        beforeText = """\n-\\033[2m----------------------------------------------------\\033[0m-\n                                        \\033[0;32m,--.\\033[0;30m/\\033[0;32m,-.\\033[0m\n\\033[0;34m        ___     __   __   __   ___     \\033[0;32m/,-._.--~\\\'\\033[0m\n\\033[0;34m  |\\\\ | |__  __ /  ` /  \\\\ |__) |__         \\033[0;33m}  {\\033[0m\n\\033[0;34m  | \\\\| |       \\\\__, \\\\__/ |  \\\\ |___     \\033[0;32m\\\\`-._,-`-,\\033[0m\n                                        \\033[0;32m`._,._,\\\'\\033[0m\n\\033[0;35m  ${manifest.name} ${manifest.version}\\033[0m\n-\\033[2m----------------------------------------------------\\033[0m-\n"""\n        afterText = """${manifest.doi ? "* The pipeline\\n" : ""}${manifest.doi.tokenize(",").collect { "  https://doi.org/${it.trim().replace(\'https://doi.org/\',\'\')}"}.join("\\n")}${manifest.doi ? "\\n" : ""}\n* The nf-core framework\n  https://doi.org/10.1038/s41587-020-0439-x\n\n* Software dependencies\n  https://github.com/${manifest.name}/blob/master/CITATIONS.md\n"""\n    }\n    summary {\n        beforeText = validation.help.beforeText\n        afterText = validation.help.afterText\n    }\n}\n\n// Load modules.config for DSL2 module specific options\n',
+        new='    doi             = \'\'\n}\n\n// Nextflow plugins\nplugins {\n    id \'nf-schema@2.1.1\' // Validation of pipeline parameters and creation of an input channel from a sample sheet\n}\n\nvalidation {\n    defaultIgnoreParams = ["genomes"]\n    help {\n        enabled = true\n        command = "nextflow run $manifest.name -profile <docker/singularity/.../institute> --input samplesheet.csv --outdir <OUTDIR>"\n        fullParameter = "help_full"\n        showHiddenParameter = "show_hidden"\n        beforeText = """\n-\\033[2m----------------------------------------------------\\033[0m-\n                                        \\033[0;32m,--.\\033[0;30m/\\033[0;32m,-.\\033[0m\n\\033[0;34m        ___     __   __   __   ___     \\033[0;32m/,-._.--~\\\'\\033[0m\n\\033[0;34m  |\\\\ | |__  __ /  ` /  \\\\ |__) |__         \\033[0;33m}  {\\033[0m\n\\033[0;34m  | \\\\| |       \\\\__, \\\\__/ |  \\\\ |___     \\033[0;32m\\\\`-._,-`-,\\033[0m\n                                        \\033[0;32m`._,._,\\\'\\033[0m\n\\033[0;35m  ${manifest.name} ${manifest.version}\\033[0m\n-\\033[2m----------------------------------------------------\\033[0m-\n"""\n        afterText = """${manifest.doi ? "* The pipeline\\n" : ""}${manifest.doi.tokenize(",").collect { "  https://doi.org/${it.trim().replace(\'https://doi.org/\',\'\')}"}.join("\\n")}${manifest.doi ? "\\n" : ""}\n* The nf-core framework\n  https://doi.org/10.1038/s41587-020-0439-x\n\n* Software dependencies\n  https://github.com/${manifest.name}/blob/master/CITATIONS.md\n"""\n    }\n    summary {\n        beforeText = validation.help.beforeText\n        afterText = validation.help.afterText\n    }\n}\n',
     ),
     Replace(
         'nextflow.config',
@@ -1536,8 +1500,20 @@ include { UTILS_NEXTFLOW_PIPELINE   } from '../../nf-core/utils_nextflow_pipelin
     ),
     Replace(
         'subworkflows/local/utils_nfcore_{{pipeline_name}}_pipeline/main.nf',
-        old='        def temp_doi_ref = ""\n        String[] manifest_doi = meta.manifest_map.doi.tokenize(",")\n        for (String doi_ref: manifest_doi) temp_doi_ref += "(doi: <a href=\\\'https://doi.org/${doi_ref.replace("https://doi.org/", "").replace(" ", "")}\\\'>${doi_ref.replace("https://doi.org/", "").replace(" ", "")}</a>), "\n        meta["doi_text"] = temp_doi_ref.substring(0, temp_doi_ref.length() - 2)\n    } else meta["doi_text"] = ""\n    meta["nodoi_text"] = meta.manifest_map.doi ? "" : "<li>If available, make sure to update the text to include the Zenodo DOI of version of the pipeline used. </li>"\n\n    // Tool references\n    meta["tool_citations"] = ""\n    meta["tool_bibliography"] = ""\n\n    // TODO nf-core: Only uncomment below if logic in toolCitationText/toolBibliographyText has been filled!\n    // meta["tool_citations"] = toolCitationText().replaceAll(", \\\\.", ".").replaceAll("\\\\. \\\\.", ".").replaceAll(", \\\\.", ".")\n    // meta["tool_bibliography"] = toolBibliographyText()\n\n\n    def methods_text = mqc_methods_yaml.text\n\n    def engine =  new groovy.text.SimpleTemplateEngine()\n    def description_html = engine.createTemplate(methods_text).make(meta)\n\n    return description_html.toString()\n}\n',
-        new='        def temp_doi_ref = ""\n        def manifest_doi = meta.manifest_map.doi.tokenize(",")\n        manifest_doi.each { doi_ref ->\n            temp_doi_ref += "(doi: <a href=\\\'https://doi.org/${doi_ref.replace("https://doi.org/", "").replace(" ", "")}\\\'>${doi_ref.replace("https://doi.org/", "").replace(" ", "")}</a>), "\n        }\n        meta["doi_text"] = temp_doi_ref.substring(0, temp_doi_ref.length() - 2)\n    } else meta["doi_text"] = ""\n    meta["nodoi_text"] = meta.manifest_map.doi ? "" : "<li>If available, make sure to update the text to include the Zenodo DOI of version of the pipeline used. </li>"\n\n    // Tool references\n    meta["tool_citations"] = ""\n    meta["tool_bibliography"] = ""\n\n    // TODO nf-core: Only uncomment below if logic in toolCitationText/toolBibliographyText has been filled!\n    // meta["tool_citations"] = toolCitationText().replaceAll(", \\\\.", ".").replaceAll("\\\\. \\\\.", ".").replaceAll(", \\\\.", ".")\n    // meta["tool_bibliography"] = toolBibliographyText()\n\n\n    def methods_text = mqc_methods_yaml.text\n\n    def engine =  new groovy.text.SimpleTemplateEngine()\n    def description_html = engine.createTemplate(methods_text).make(meta)\n\n    return description_html.toString()\n}\n\n',
+        old='        String[] manifest_doi = meta.manifest_map.doi.tokenize(",")\n        for (String doi_ref: manifest_doi) temp_doi_ref += "(doi: <a href=\\\'https://doi.org/${doi_ref.replace("https://doi.org/", "").replace(" ", "")}\\\'>${doi_ref.replace("https://doi.org/", "").replace(" ", "")}</a>), "\n',
+        new='        def manifest_doi = meta.manifest_map.doi.tokenize(",")\n        manifest_doi.each { doi_ref ->\n            temp_doi_ref += "(doi: <a href=\\\'https://doi.org/${doi_ref.replace("https://doi.org/", "").replace(" ", "")}\\\'>${doi_ref.replace("https://doi.org/", "").replace(" ", "")}</a>), "\n        }\n',
+    ),
+    Replace(
+        'subworkflows/local/utils_nfcore_{{pipeline_name}}_pipeline/main.nf',
+        old="""\
+    return description_html.toString()
+}
+""",
+        new="""\
+    return description_html.toString()
+}
+
+""",
     ),
     Replace(
         'workflows/{{pipeline_name}}.nf',
@@ -1596,17 +1572,13 @@ include { paramsSummaryMap       } from 'plugin/nf-schema'
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-            newLine: true
         ).set { ch_collated_versions }
 
-    //
 """,
         new="""\
-            newLine: true
         ).set { ch_collated_versions }
 
 
-    //
 """,
     ),
     Replace(

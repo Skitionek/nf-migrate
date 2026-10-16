@@ -86,13 +86,10 @@ operations = [
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-        run: prettier --check ${GITHUB_WORKSPACE}
 
   nf-core:
-    runs-on: ubuntu-latest
 """,
         new="""\
-        run: prettier --check ${GITHUB_WORKSPACE}
 
   PythonBlack:
     runs-on: ubuntu-latest
@@ -125,7 +122,6 @@ operations = [
           allow-repeats: false
 
   nf-core:
-    runs-on: ubuntu-latest
 """,
     ),
     Replace(
@@ -526,17 +522,13 @@ NXF_OPTS='-Xms1g -Xmx4g'
     Replace(
         'lib/WorkflowSentinelpipe.groovy',
         old="""\
-    public static void initialise(params, log) {
         genomeExistsError(params, log)
 
-        if (!params.fasta) {
 """,
         new="""\
-    public static void initialise(params, log) {
         genomeExistsError(params, log)
 
 
-        if (!params.fasta) {
 """,
     ),
     Replace(
@@ -566,17 +558,13 @@ Website: https://nf-co.re/{{pipeline_name}}
     Replace(
         'nextflow.config',
         old="""\
-    input                      = null
 
     // References
-    genome                     = null
 """,
         new="""\
-    input                      = null
 
 
     // References
-    genome                     = null
 """,
     ),
     Replace(
@@ -594,61 +582,46 @@ Website: https://nf-co.re/{{pipeline_name}}
     Replace(
         'nextflow.config',
         old="""\
-    enable_conda               = false
 
     // Config options
-    custom_config_version      = 'master'
 """,
         new="""\
-    enable_conda               = false
 
 
     // Config options
-    custom_config_version      = 'master'
 """,
     ),
     Replace(
         'nextflow.config',
         old="""\
-    config_profile_url         = null
     config_profile_name        = null
 
-    // Max resource options
 """,
         new="""\
-    config_profile_url         = null
     config_profile_name        = null
 
 
-    // Max resource options
 """,
     ),
     Replace(
         'nextflow.config',
         old="""\
-// }
+
+profiles {
+""",
+        new="""\
 
 
 profiles {
-    debug { process.beforeScript = 'echo $HOSTNAME' }
-    conda {
+""",
+    ),
+    Replace(
+        'nextflow.config',
+        old="""\
         params.enable_conda    = true
         docker.enabled         = false
-        singularity.enabled    = false
-        podman.enabled         = false
-        shifter.enabled        = false
-        charliecloud.enabled   = false
-    }
-    docker {
 """,
         new="""\
-// }
-
-
-
-profiles {
-    debug { process.beforeScript = 'echo $HOSTNAME' }
-    conda {
         params.enable_conda    = true
         docker.enabled         = false
         singularity.enabled    = false
@@ -660,27 +633,15 @@ profiles {
         params.enable_conda    = true
         conda.useMamba         = true
         docker.enabled         = false
-        singularity.enabled    = false
-        podman.enabled         = false
-        shifter.enabled        = false
-        charliecloud.enabled   = false
-    }
-    docker {
 """,
     ),
     Replace(
         'nextflow.config',
         old="""\
-        shifter.enabled        = false
     }
     test      { includeConfig 'conf/test.config'      }
-    test_full { includeConfig 'conf/test_full.config' }
-}
-
-// Load igenomes.config if required
 """,
         new="""\
-        shifter.enabled        = false
     }
     gitpod {
         executor.name          = 'local'
@@ -688,6 +649,17 @@ profiles {
         executor.memory        = 60.GB
     }
     test      { includeConfig 'conf/test.config'      }
+""",
+    ),
+    Replace(
+        'nextflow.config',
+        old="""\
+    test_full { includeConfig 'conf/test_full.config' }
+}
+
+// Load igenomes.config if required
+""",
+        new="""\
     test_full { includeConfig 'conf/test_full.config' }
 }
 

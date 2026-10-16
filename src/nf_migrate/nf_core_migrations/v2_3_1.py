@@ -194,53 +194,20 @@ body:
     Replace(
         '.github/workflows/ci.yml',
         old="""\
-          # Test latest edge release of Nextflow
           - NXF_VER: ''
             NXF_EDGE: '1'
-    steps:
-      - name: Check out pipeline code
-        uses: actions/checkout@v2
-
-      - name: Install Nextflow
-        env:
-          NXF_VER: ${{ matrix.NXF_VER }}
-          # Uncomment only if the edge release is more recent than the latest stable release
-          # See https://github.com/nextflow-io/nextflow/issues/2467
-          # NXF_EDGE: ${{ matrix.NXF_EDGE }}
-        run: |
-          wget -qO- get.nextflow.io | bash
-          sudo mv nextflow /usr/local/bin/
-
-      - name: Run pipeline with test data
-        # TODO nf-core: You can customise CI pipeline run tests as required
-        # For example: adding multiple test runs with different parameters
-        # Remember that you can parallelise this by using strategy.matrix
-        run: |
+""",
+        new="""\
+          - NXF_VER: ""
+            NXF_EDGE: "1"
+""",
+    ),
+    Replace(
+        '.github/workflows/ci.yml',
+        old="""\
           nextflow run ${GITHUB_WORKSPACE} -profile test,docker --outdir ./results
 """,
         new="""\
-          # Test latest edge release of Nextflow
-          - NXF_VER: ""
-            NXF_EDGE: "1"
-    steps:
-      - name: Check out pipeline code
-        uses: actions/checkout@v2
-
-      - name: Install Nextflow
-        env:
-          NXF_VER: ${{ matrix.NXF_VER }}
-          # Uncomment only if the edge release is more recent than the latest stable release
-          # See https://github.com/nextflow-io/nextflow/issues/2467
-          # NXF_EDGE: ${{ matrix.NXF_EDGE }}
-        run: |
-          wget -qO- get.nextflow.io | bash
-          sudo mv nextflow /usr/local/bin/
-
-      - name: Run pipeline with test data
-        # TODO nf-core: You can customise CI pipeline run tests as required
-        # For example: adding multiple test runs with different parameters
-        # Remember that you can parallelise this by using strategy.matrix
-        run: |
           nextflow run ${GITHUB_WORKSPACE} -profile test,docker --outdir ./results
 
 #
@@ -388,66 +355,21 @@ jobs:
     Replace(
         '.github/workflows/linting.yml',
         old="""\
-        with:
           python-version: '3.6'
           architecture: 'x64'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install nf-core
-
-      - name: Run nf-core lint
-        env:
-          GITHUB_COMMENTS_URL: ${{ github.event.pull_request.comments_url }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_PR_COMMIT: ${{ github.event.pull_request.head.sha }}
-        run: nf-core -l lint_log.txt lint --dir ${GITHUB_WORKSPACE} --markdown lint_results.md
-
-      - name: Save PR number
-        if: ${{ always() }}
-        run: echo ${{ github.event.pull_request.number }} > PR_number.txt
-
-      - name: Upload linting log file artifact
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v2
-        with:
-          name: linting-logs
-          path: |
-            lint_log.txt
-            lint_results.md
+""",
+        new="""\
+          python-version: "3.6"
+          architecture: "x64"
+""",
+    ),
+    Replace(
+        '.github/workflows/linting.yml',
+        old="""\
             PR_number.txt
 
 """,
         new="""\
-        with:
-          python-version: "3.6"
-          architecture: "x64"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install nf-core
-
-      - name: Run nf-core lint
-        env:
-          GITHUB_COMMENTS_URL: ${{ github.event.pull_request.comments_url }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_PR_COMMIT: ${{ github.event.pull_request.head.sha }}
-        run: nf-core -l lint_log.txt lint --dir ${GITHUB_WORKSPACE} --markdown lint_results.md
-
-      - name: Save PR number
-        if: ${{ always() }}
-        run: echo ${{ github.event.pull_request.number }} > PR_number.txt
-
-      - name: Upload linting log file artifact
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v2
-        with:
-          name: linting-logs
-          path: |
-            lint_log.txt
-            lint_results.md
             PR_number.txt
 
 #

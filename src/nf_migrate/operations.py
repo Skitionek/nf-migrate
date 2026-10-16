@@ -127,9 +127,10 @@ def _change_diff(path: str, old: str, new: str) -> str:
     return "".join(diff_lines)
 
 
-def _is_inside_match(
+def is_inside_match(
     position: int, length: int, match_positions: list[int], match: str
 ) -> bool:
+    """Whether [position, position + length) lies within a match."""
     return any(
         start <= position and position + length <= start + len(match)
         for start in match_positions
@@ -190,7 +191,7 @@ class Replace:
         old_positions = [
             position
             for position in old_positions
-            if not _is_inside_match(position, len(old), new_positions, new)
+            if not is_inside_match(position, len(old), new_positions, new)
         ]
         if not old_positions and new_positions:
             return OperationResult(path, Outcome.ALREADY_APPLIED, "", change)

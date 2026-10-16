@@ -19,67 +19,9 @@ operations = [
     Replace(
         '.github/workflows/awsfulltest.yml',
         old="""\
-name: nf-core AWS full size tests
-# This workflow is triggered on published releases.
-# It can be additionally triggered manually with GitHub actions workflow dispatch button.
-# It runs the -profile 'test_full' on AWS batch
-
-on:
-  release:
-    types: [published]
-  workflow_dispatch:
-jobs:
-  run-tower:
-    name: Run AWS full tests
-    if: github.repository == 'nf-core/{{pipeline_name}}'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Launch workflow via tower
-        uses: nf-core/tower-action@v3
-        # TODO nf-core: You can customise AWS full pipeline tests as required
-        # Add full size test data (but still relatively small datasets for few samples)
-        # on the `test_full.config` test runs with only one set of parameters
-        with:
-          workspace_id: ${{ secrets.TOWER_WORKSPACE_ID }}
-          access_token: ${{ secrets.TOWER_ACCESS_TOKEN }}
-          compute_env: ${{ secrets.TOWER_COMPUTE_ENV }}
-          workdir: s3://${{ secrets.AWS_S3_BUCKET }}/work/{{pipeline_name}}/work-${{ github.sha }}
-          parameters: |
-            {
-              "outdir": "s3://${{ secrets.AWS_S3_BUCKET }}/{{pipeline_name}}/results-${{ github.sha }}"
-            }
           profiles: test_full,aws_tower
 """,
         new="""\
-name: nf-core AWS full size tests
-# This workflow is triggered on published releases.
-# It can be additionally triggered manually with GitHub actions workflow dispatch button.
-# It runs the -profile 'test_full' on AWS batch
-
-on:
-  release:
-    types: [published]
-  workflow_dispatch:
-jobs:
-  run-tower:
-    name: Run AWS full tests
-    if: github.repository == 'nf-core/{{pipeline_name}}'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Launch workflow via tower
-        uses: nf-core/tower-action@v3
-        # TODO nf-core: You can customise AWS full pipeline tests as required
-        # Add full size test data (but still relatively small datasets for few samples)
-        # on the `test_full.config` test runs with only one set of parameters
-        with:
-          workspace_id: ${{ secrets.TOWER_WORKSPACE_ID }}
-          access_token: ${{ secrets.TOWER_ACCESS_TOKEN }}
-          compute_env: ${{ secrets.TOWER_COMPUTE_ENV }}
-          workdir: s3://${{ secrets.AWS_S3_BUCKET }}/work/{{pipeline_name}}/work-${{ github.sha }}
-          parameters: |
-            {
-              "outdir": "s3://${{ secrets.AWS_S3_BUCKET }}/{{pipeline_name}}/results-${{ github.sha }}"
-            }
           profiles: test_full,aws_tower
       - uses: actions/upload-artifact@v3
         with:
@@ -90,57 +32,9 @@ jobs:
     Replace(
         '.github/workflows/awstest.yml',
         old="""\
-name: nf-core AWS test
-# This workflow can be triggered manually with the GitHub actions workflow dispatch button.
-# It runs the -profile 'test' on AWS batch
-
-on:
-  workflow_dispatch:
-jobs:
-  run-tower:
-    name: Run AWS tests
-    if: github.repository == 'nf-core/{{pipeline_name}}'
-    runs-on: ubuntu-latest
-    steps:
-      # Launch workflow using Tower CLI tool action
-      - name: Launch workflow via tower
-        uses: nf-core/tower-action@v3
-        with:
-          workspace_id: ${{ secrets.TOWER_WORKSPACE_ID }}
-          access_token: ${{ secrets.TOWER_ACCESS_TOKEN }}
-          compute_env: ${{ secrets.TOWER_COMPUTE_ENV }}
-          workdir: s3://${{ secrets.AWS_S3_BUCKET }}/work/{{pipeline_name}}/work-${{ github.sha }}
-          parameters: |
-            {
-              "outdir": "s3://${{ secrets.AWS_S3_BUCKET }}/{{pipeline_name}}/results-test-${{ github.sha }}"
-            }
           profiles: test,aws_tower
 """,
         new="""\
-name: nf-core AWS test
-# This workflow can be triggered manually with the GitHub actions workflow dispatch button.
-# It runs the -profile 'test' on AWS batch
-
-on:
-  workflow_dispatch:
-jobs:
-  run-tower:
-    name: Run AWS tests
-    if: github.repository == 'nf-core/{{pipeline_name}}'
-    runs-on: ubuntu-latest
-    steps:
-      # Launch workflow using Tower CLI tool action
-      - name: Launch workflow via tower
-        uses: nf-core/tower-action@v3
-        with:
-          workspace_id: ${{ secrets.TOWER_WORKSPACE_ID }}
-          access_token: ${{ secrets.TOWER_ACCESS_TOKEN }}
-          compute_env: ${{ secrets.TOWER_COMPUTE_ENV }}
-          workdir: s3://${{ secrets.AWS_S3_BUCKET }}/work/{{pipeline_name}}/work-${{ github.sha }}
-          parameters: |
-            {
-              "outdir": "s3://${{ secrets.AWS_S3_BUCKET }}/{{pipeline_name}}/results-test-${{ github.sha }}"
-            }
           profiles: test,aws_tower
       - uses: actions/upload-artifact@v3
         with:
@@ -240,13 +134,10 @@ report_section_order:
     Replace(
         'docs/usage.md',
         old="""\
-If you have any questions or issues please send us a message on [Slack](https://nf-co.re/join/slack) on the [`#configs` channel](https://nfcore.slack.com/channels/configs).
 
 ## Running in the background
-
 """,
         new="""\
-If you have any questions or issues please send us a message on [Slack](https://nf-co.re/join/slack) on the [`#configs` channel](https://nfcore.slack.com/channels/configs).
 
 ## Azure Resource Requests
 
@@ -257,25 +148,15 @@ Note that the choice of VM size depends on your quota and the overall workload d
 For a thorough list, please refer the [Azure Sizes for virtual machines in Azure](https://docs.microsoft.com/en-us/azure/virtual-machines/sizes).
 
 ## Running in the background
-
 """,
     ),
     Replace(
         'lib/NfcoreTemplate.groovy',
         old="""\
-        output_tf.withWriter { w -> w << email_txt }
-    }
-
     //
     // Print pipeline summary on completion
-    //
-    public static void summary(workflow, params, log) {
-        Map colors = logColours(params.monochrome_logs)
 """,
         new="""\
-        output_tf.withWriter { w -> w << email_txt }
-    }
-
     //
     // Construct and send adaptive card
     // https://adaptivecards.io
@@ -333,9 +214,6 @@ For a thorough list, please refer the [Azure Sizes for virtual machines in Azure
 
     //
     // Print pipeline summary on completion
-    //
-    public static void summary(workflow, params, log) {
-        Map colors = logColours(params.monochrome_logs)
 """,
     ),
     Replace(
@@ -381,18 +259,14 @@ For a thorough list, please refer the [Azure Sizes for virtual machines in Azure
     Replace(
         'lib/WorkflowSentinelpipe.groovy',
         old="""\
-// This file holds several functions specific to the workflow/{{pipeline_name}}.nf in the nf-core/{{pipeline_name}} pipeline
 //
 
-class WorkflowSentinelpipe {
 """,
         new="""\
-// This file holds several functions specific to the workflow/{{pipeline_name}}.nf in the nf-core/{{pipeline_name}} pipeline
 //
 
 import groovy.text.SimpleTemplateEngine
 
-class WorkflowSentinelpipe {
 """,
     ),
     Replace(
@@ -471,16 +345,10 @@ Website: https://nf-co.re/{{pipeline_name}}
     Replace(
         'nextflow_schema.json',
         old="""\
-                    "fa_icon": "fas fa-palette",
-                    "hidden": true
                 },
                 "multiqc_config": {
-                    "type": "string",
-                    "description": "Custom config file to supply to MultiQC.",
 """,
         new="""\
-                    "fa_icon": "fas fa-palette",
-                    "hidden": true
                 },
                 "hook_url": {
                     "type": "string",
@@ -490,8 +358,6 @@ Website: https://nf-co.re/{{pipeline_name}}
                     "hidden": true
                 },
                 "multiqc_config": {
-                    "type": "string",
-                    "description": "Custom config file to supply to MultiQC.",
 """,
     ),
     Replace(
@@ -549,7 +415,6 @@ include { CUSTOM_DUMPSOFTWAREVERSIONS } from '../modules/nf-core/custom/dumpsoft
     Replace(
         'workflows/{{pipeline_name}}.nf',
         old="""\
-    ch_workflow_summary = Channel.value(workflow_summary)
 
     ch_multiqc_files = Channel.empty()
     ch_multiqc_files = ch_multiqc_files.mix(Channel.from(ch_multiqc_config))
@@ -558,7 +423,6 @@ include { CUSTOM_DUMPSOFTWAREVERSIONS } from '../modules/nf-core/custom/dumpsoft
     ch_multiqc_files = ch_multiqc_files.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
 """,
         new="""\
-    ch_workflow_summary = Channel.value(workflow_summary)
 
     methods_description    = WorkflowSentinelpipe.methodsDescriptionText(workflow, ch_multiqc_custom_methods_description)
     ch_methods_description = Channel.value(methods_description)

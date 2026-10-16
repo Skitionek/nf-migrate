@@ -542,13 +542,10 @@ see [docs](https://nf-co.re/usage/configuration#custom-configuration-files).
     Replace(
         'conf/modules.config',
         old="""\
-            pattern: '*_versions.yml'
-        ]
-    }
 
 }
 """,
-        new='            pattern: \'*_versions.yml\'\n        ]\n    }\n\n    withName: \'MULTIQC\' {\n        ext.args   = params.multiqc_title ? "--title \\"$params.multiqc_title\\"" : \'\'\n        publishDir = [\n            path: { "${params.outdir}/multiqc" },\n            mode: params.publish_dir_mode,\n            saveAs: { filename -> filename.equals(\'versions.yml\') ? null : filename }\n        ]\n    }\n\n}\n',
+        new='\n    withName: \'MULTIQC\' {\n        ext.args   = params.multiqc_title ? "--title \\"$params.multiqc_title\\"" : \'\'\n        publishDir = [\n            path: { "${params.outdir}/multiqc" },\n            mode: params.publish_dir_mode,\n            saveAs: { filename -> filename.equals(\'versions.yml\') ? null : filename }\n        ]\n    }\n\n}\n',
     ),
     Replace(
         'docs/output.md',
@@ -632,19 +629,10 @@ import groovy.json.JsonOutput
     Replace(
         'lib/NfcoreTemplate.groovy',
         old="""\
-        }
-    }
-
     //
     // Print pipeline summary on completion
-    //
-    public static void summary(workflow, params, log) {
-        Map colors = logColours(params.monochrome_logs)
 """,
         new="""\
-        }
-    }
-
     //
     // Dump pipeline parameters in a json file
     //
@@ -662,9 +650,6 @@ import groovy.json.JsonOutput
 
     //
     // Print pipeline summary on completion
-    //
-    public static void summary(workflow, params, log) {
-        Map colors = logColours(params.monochrome_logs)
 """,
     ),
     Replace(

@@ -19,17 +19,9 @@ operations = [
     Replace(
         '.github/.dockstore.yml',
         old="""\
-# Dockstore config version, not pipeline version
-version: 1.2
-workflows:
-  - subclass: nfl
     primaryDescriptorPath: /nextflow.config
 """,
         new="""\
-# Dockstore config version, not pipeline version
-version: 1.2
-workflows:
-  - subclass: nfl
     primaryDescriptorPath: /nextflow.config
     publish: True
 """,
@@ -86,13 +78,10 @@ about: Suggest an idea for the nf-core/{{pipeline_name}} pipeline
     Replace(
         '.github/workflows/awsfulltest.yml',
         old="""\
-    types: [completed]
   workflow_dispatch:
 
-jobs:
 """,
         new="""\
-    types: [completed]
   workflow_dispatch:
 
 
@@ -105,7 +94,6 @@ env:
   AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
 
 
-jobs:
 """,
     ),
     Replace(
@@ -129,13 +117,10 @@ jobs:
     Replace(
         '.github/workflows/awstest.yml',
         old="""\
-on:
   workflow_dispatch:
 
-jobs:
 """,
         new="""\
-on:
   workflow_dispatch:
 
 
@@ -148,7 +133,6 @@ env:
   AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
 
 
-jobs:
 """,
     ),
     Replace(
@@ -592,12 +576,10 @@ Several generic profiles are bundled with the pipeline which instruct the pipeli
     Replace(
         'docs/usage.md',
         old="""\
-  * A generic configuration profile to be used with [Podman](https://podman.io/)
   * Pulls software from Docker Hub: [`nfcore/{{pipeline_name}}`](https://hub.docker.com/r/nfcore/{{pipeline_name}}/)
 * `conda`
 """,
         new="""\
-  * A generic configuration profile to be used with [Podman](https://podman.io/)
   * Pulls software from Docker Hub: [`nfcore/{{pipeline_name}}`](https://hub.docker.com/r/nfcore/{{pipeline_name}}/)
 * `shifter`
   * A generic configuration profile to be used with [Shifter](https://nersc.gitlab.io/development/shifter/how-to-use/)
@@ -620,18 +602,14 @@ Several generic profiles are bundled with the pipeline which instruct the pipeli
     Replace(
         'docs/usage.md',
         old="""\
-```
 
 See the main [Nextflow documentation](https://www.nextflow.io/docs/latest/config.html) for more information.
-
 """,
         new="""\
-```
 
 To find the exact name of a process you wish to modify the compute resources, check the live-status of a nextflow run displayed on your terminal or check the nextflow error for a line like so: `Error executing process > 'bwa'`. In this case the name to specify in the custom config file is `bwa`.
 
 See the main [Nextflow documentation](https://www.nextflow.io/docs/latest/config.html) for more information.
-
 """,
     ),
     CreateFile(
@@ -776,14 +754,12 @@ if (!(workflow.runName ==~ /[a-z]+_[a-z]+/)) {
     Replace(
         'main.nf',
         old="""\
-}
 
 // Header log info
 log.info nfcoreHeader()
 def summary = [:]
 """,
         new="""\
-}
 
 ////////////////////////////////////////////////////
 /* --         PRINT PARAMETER SUMMARY          -- */
@@ -1090,19 +1066,10 @@ workflow.onError {
     Replace(
         'nextflow_schema.json',
         old="""\
-                },
-                "hostnames": {
-                    "type": "string",
                     "description": "Institutional configs hostname.",
                     "hidden": true,
-                    "fa_icon": "fas fa-users-cog"
-                },
-                "config_profile_description": {
 """,
         new="""\
-                },
-                "hostnames": {
-                    "type": "string",
                     "description": "Institutional configs hostname.",
                     "hidden": true,
                     "fa_icon": "fas fa-users-cog"
@@ -1111,9 +1078,6 @@ workflow.onError {
                     "type": "string",
                     "description": "Institutional config name.",
                     "hidden": true,
-                    "fa_icon": "fas fa-users-cog"
-                },
-                "config_profile_description": {
 """,
     ),
 ]

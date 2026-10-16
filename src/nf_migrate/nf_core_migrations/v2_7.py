@@ -63,213 +63,9 @@ modules/nf-core/** linguist-generated
     Replace(
         '.github/CONTRIBUTING.md',
         old="""\
-# nf-core/{{pipeline_name}}: Contributing Guidelines
-
-Hi there!
-Many thanks for taking an interest in improving nf-core/{{pipeline_name}}.
-
-We try to manage the required tasks for nf-core/{{pipeline_name}} using GitHub issues, you probably came to this page when creating one.
-Please use the pre-filled template to save time.
-
-However, don't be put off by this template - other more general issues and suggestions are welcome!
-Contributions to the code are even more welcome ;)
-
-> If you need help using or modifying nf-core/{{pipeline_name}} then the best place to ask is on the nf-core Slack [#{{pipeline_name}}](https://nfcore.slack.com/channels/{{pipeline_name}}) channel ([join our Slack here](https://nf-co.re/join/slack)).
-
-## Contribution workflow
-
-If you'd like to write some code for nf-core/{{pipeline_name}}, the standard workflow is as follows:
-
-1. Check that there isn't already an issue about your idea in the [nf-core/{{pipeline_name}} issues](https://github.com/nf-core/{{pipeline_name}}/issues) to avoid duplicating work. If there isn't one already, please create one so that others know you're working on this
-2. [Fork](https://help.github.com/en/github/getting-started-with-github/fork-a-repo) the [nf-core/{{pipeline_name}} repository](https://github.com/nf-core/{{pipeline_name}}) to your GitHub account
-3. Make the necessary changes / additions within your forked repository following [Pipeline conventions](#pipeline-contribution-conventions)
-4. Use `nf-core schema build` and add any new parameters to the pipeline JSON schema (requires [nf-core tools](https://github.com/nf-core/tools) >= 1.10).
-5. Submit a Pull Request against the `dev` branch and wait for the code to be reviewed and merged
-
-If you're not used to this workflow with git, you can start with some [docs from GitHub](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests) or even their [excellent `git` resources](https://try.github.io/).
-
-## Tests
-
-When you create a pull request with changes, [GitHub Actions](https://github.com/features/actions) will run automatic tests.
-Typically, pull-requests are only fully reviewed when these tests are passing, though of course we can help out before then.
-
-There are typically two types of tests that run:
-
-### Lint tests
-
-`nf-core` has a [set of guidelines](https://nf-co.re/developers/guidelines) which all pipelines must adhere to.
-To enforce these and ensure that all pipelines stay in sync, we have developed a helper tool which runs checks on the pipeline code. This is in the [nf-core/tools repository](https://github.com/nf-core/tools) and once installed can be run locally with the `nf-core lint <pipeline-directory>` command.
-
-If any failures or warnings are encountered, please follow the listed URL for more documentation.
-
-### Pipeline tests
-
-Each `nf-core` pipeline should be set up with a minimal set of test-data.
-`GitHub Actions` then runs the pipeline on this data to ensure that it exits successfully.
-If there are any failures then the automated tests fail.
-These tests are run both with the latest available version of `Nextflow` and also the minimum required version that is stated in the pipeline code.
-
-## Patch
-
-:warning: Only in the unlikely and regretful event of a release happening with a bug.
-
-- On your own fork, make a new branch `patch` based on `upstream/master`.
-- Fix the bug, and bump version (X.Y.Z+1).
-- A PR should be made on `master` from patch to directly this particular bug.
-
-## Getting help
-
-For further information/help, please consult the [nf-core/{{pipeline_name}} documentation](https://nf-co.re/{{pipeline_name}}/usage) and don't hesitate to get in touch on the nf-core Slack [#{{pipeline_name}}](https://nfcore.slack.com/channels/{{pipeline_name}}) channel ([join our Slack here](https://nf-co.re/join/slack)).
-
-## Pipeline contribution conventions
-
-To make the nf-core/{{pipeline_name}} code and processing logic more understandable for new contributors and to ensure quality, we semi-standardise the way the code and other contributions are written.
-
-### Adding a new step
-
-If you wish to contribute a new step, please use the following coding standards:
-
-1. Define the corresponding input channel into your new process from the expected previous process channel
-2. Write the process block (see below).
-3. Define the output channel if needed (see below).
-4. Add any new parameters to `nextflow.config` with a default (see below).
-5. Add any new parameters to `nextflow_schema.json` with help text (via the `nf-core schema build` tool).
-6. Add sanity checks and validation for all relevant parameters.
-7. Perform local tests to validate that the new code works as expected.
-8. If applicable, add a new test command in `.github/workflow/ci.yml`.
-9. Update MultiQC config `assets/multiqc_config.yml` so relevant suffixes, file name clean up and module plots are in the appropriate order. If applicable, add a [MultiQC](https://https://multiqc.info/) module.
-10. Add a description of the output files and if relevant any appropriate images from the MultiQC report to `docs/output.md`.
-
-### Default values
-
-Parameters should be initialised / defined with default values in `nextflow.config` under the `params` scope.
-
-Once there, use `nf-core schema build` to add to `nextflow_schema.json`.
-
-### Default processes resource requirements
-
-Sensible defaults for process resource requirements (CPUs / memory / time) for a process should be defined in `conf/base.config`. These should generally be specified generic with `withLabel:` selectors so they can be shared across multiple processes/steps of the pipeline. A nf-core standard set of labels that should be followed where possible can be seen in the [nf-core pipeline template](https://github.com/nf-core/tools/blob/master/nf_core/pipeline-template/conf/base.config), which has the default process as a single core-process, and then different levels of multi-core configurations for increasingly large memory requirements defined with standardised labels.
-
-The process resources can be passed on to the tool dynamically within the process with the `${task.cpu}` and `${task.memory}` variables in the `script:` block.
-
-### Naming schemes
-
-Please use the following naming schemes, to make it easy to understand what is going where.
-
-- initial process channel: `ch_output_from_<process>`
-- intermediate and terminal channels: `ch_<previousprocess>_for_<nextprocess>`
-
-### Nextflow version bumping
-
-If you are using a new feature from core Nextflow, you may bump the minimum required version of nextflow in the pipeline with: `nf-core bump-version --nextflow . [min-nf-version]`
-
-### Images and figures
-
 For overview images and other documents we follow the nf-core [style guidelines and examples](https://nf-co.re/developers/design_guidelines).
 """,
         new="""\
-# nf-core/{{pipeline_name}}: Contributing Guidelines
-
-Hi there!
-Many thanks for taking an interest in improving nf-core/{{pipeline_name}}.
-
-We try to manage the required tasks for nf-core/{{pipeline_name}} using GitHub issues, you probably came to this page when creating one.
-Please use the pre-filled template to save time.
-
-However, don't be put off by this template - other more general issues and suggestions are welcome!
-Contributions to the code are even more welcome ;)
-
-> If you need help using or modifying nf-core/{{pipeline_name}} then the best place to ask is on the nf-core Slack [#{{pipeline_name}}](https://nfcore.slack.com/channels/{{pipeline_name}}) channel ([join our Slack here](https://nf-co.re/join/slack)).
-
-## Contribution workflow
-
-If you'd like to write some code for nf-core/{{pipeline_name}}, the standard workflow is as follows:
-
-1. Check that there isn't already an issue about your idea in the [nf-core/{{pipeline_name}} issues](https://github.com/nf-core/{{pipeline_name}}/issues) to avoid duplicating work. If there isn't one already, please create one so that others know you're working on this
-2. [Fork](https://help.github.com/en/github/getting-started-with-github/fork-a-repo) the [nf-core/{{pipeline_name}} repository](https://github.com/nf-core/{{pipeline_name}}) to your GitHub account
-3. Make the necessary changes / additions within your forked repository following [Pipeline conventions](#pipeline-contribution-conventions)
-4. Use `nf-core schema build` and add any new parameters to the pipeline JSON schema (requires [nf-core tools](https://github.com/nf-core/tools) >= 1.10).
-5. Submit a Pull Request against the `dev` branch and wait for the code to be reviewed and merged
-
-If you're not used to this workflow with git, you can start with some [docs from GitHub](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests) or even their [excellent `git` resources](https://try.github.io/).
-
-## Tests
-
-When you create a pull request with changes, [GitHub Actions](https://github.com/features/actions) will run automatic tests.
-Typically, pull-requests are only fully reviewed when these tests are passing, though of course we can help out before then.
-
-There are typically two types of tests that run:
-
-### Lint tests
-
-`nf-core` has a [set of guidelines](https://nf-co.re/developers/guidelines) which all pipelines must adhere to.
-To enforce these and ensure that all pipelines stay in sync, we have developed a helper tool which runs checks on the pipeline code. This is in the [nf-core/tools repository](https://github.com/nf-core/tools) and once installed can be run locally with the `nf-core lint <pipeline-directory>` command.
-
-If any failures or warnings are encountered, please follow the listed URL for more documentation.
-
-### Pipeline tests
-
-Each `nf-core` pipeline should be set up with a minimal set of test-data.
-`GitHub Actions` then runs the pipeline on this data to ensure that it exits successfully.
-If there are any failures then the automated tests fail.
-These tests are run both with the latest available version of `Nextflow` and also the minimum required version that is stated in the pipeline code.
-
-## Patch
-
-:warning: Only in the unlikely and regretful event of a release happening with a bug.
-
-- On your own fork, make a new branch `patch` based on `upstream/master`.
-- Fix the bug, and bump version (X.Y.Z+1).
-- A PR should be made on `master` from patch to directly this particular bug.
-
-## Getting help
-
-For further information/help, please consult the [nf-core/{{pipeline_name}} documentation](https://nf-co.re/{{pipeline_name}}/usage) and don't hesitate to get in touch on the nf-core Slack [#{{pipeline_name}}](https://nfcore.slack.com/channels/{{pipeline_name}}) channel ([join our Slack here](https://nf-co.re/join/slack)).
-
-## Pipeline contribution conventions
-
-To make the nf-core/{{pipeline_name}} code and processing logic more understandable for new contributors and to ensure quality, we semi-standardise the way the code and other contributions are written.
-
-### Adding a new step
-
-If you wish to contribute a new step, please use the following coding standards:
-
-1. Define the corresponding input channel into your new process from the expected previous process channel
-2. Write the process block (see below).
-3. Define the output channel if needed (see below).
-4. Add any new parameters to `nextflow.config` with a default (see below).
-5. Add any new parameters to `nextflow_schema.json` with help text (via the `nf-core schema build` tool).
-6. Add sanity checks and validation for all relevant parameters.
-7. Perform local tests to validate that the new code works as expected.
-8. If applicable, add a new test command in `.github/workflow/ci.yml`.
-9. Update MultiQC config `assets/multiqc_config.yml` so relevant suffixes, file name clean up and module plots are in the appropriate order. If applicable, add a [MultiQC](https://https://multiqc.info/) module.
-10. Add a description of the output files and if relevant any appropriate images from the MultiQC report to `docs/output.md`.
-
-### Default values
-
-Parameters should be initialised / defined with default values in `nextflow.config` under the `params` scope.
-
-Once there, use `nf-core schema build` to add to `nextflow_schema.json`.
-
-### Default processes resource requirements
-
-Sensible defaults for process resource requirements (CPUs / memory / time) for a process should be defined in `conf/base.config`. These should generally be specified generic with `withLabel:` selectors so they can be shared across multiple processes/steps of the pipeline. A nf-core standard set of labels that should be followed where possible can be seen in the [nf-core pipeline template](https://github.com/nf-core/tools/blob/master/nf_core/pipeline-template/conf/base.config), which has the default process as a single core-process, and then different levels of multi-core configurations for increasingly large memory requirements defined with standardised labels.
-
-The process resources can be passed on to the tool dynamically within the process with the `${task.cpu}` and `${task.memory}` variables in the `script:` block.
-
-### Naming schemes
-
-Please use the following naming schemes, to make it easy to understand what is going where.
-
-- initial process channel: `ch_output_from_<process>`
-- intermediate and terminal channels: `ch_<previousprocess>_for_<nextprocess>`
-
-### Nextflow version bumping
-
-If you are using a new feature from core Nextflow, you may bump the minimum required version of nextflow in the pipeline with: `nf-core bump-version --nextflow . [min-nf-version]`
-
-### Images and figures
-
 For overview images and other documents we follow the nf-core [style guidelines and examples](https://nf-co.re/developers/design_guidelines).
 
 ## GitHub Codespaces
@@ -301,20 +97,16 @@ Devcontainer specs:
     Replace(
         '.github/workflows/ci.yml',
         old="""\
-  NXF_ANSI_LOG: false
 
 jobs:
-  test:
 """,
         new="""\
-  NXF_ANSI_LOG: false
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
   cancel-in-progress: true
 
 jobs:
-  test:
 """,
     ),
     Replace(
@@ -479,24 +271,19 @@ jobs:
         old="""\
 adaptivecard.json
 .nextflow*
-work/
-data/
-results/
-.DS_Store
-testing/
-testing*
-*.pyc
 """,
         new="""\
 adaptivecard.json
 slackreport.json
 .nextflow*
-work/
-data/
-results/
-.DS_Store
-testing/
-testing*
+""",
+    ),
+    Replace(
+        '.prettierignore',
+        old="""\
+*.pyc
+""",
+        new="""\
 *.pyc
 bin/
 """,
@@ -651,12 +438,10 @@ If `-profile` is not specified, the pipeline will run locally and expect all sof
     Replace(
         'docs/usage.md',
         old="""\
-```
 
 To bypass this error you would need to find exactly which resources are set by the `STAR_ALIGN` process. The quickest way is to search for `process STAR_ALIGN` in the [nf-core/rnaseq Github repo](https://github.com/nf-core/rnaseq/search?q=process+STAR_ALIGN).
 """,
         new="""\
-```
 
 #### For beginners
 
@@ -700,19 +485,10 @@ We have standardised the structure of Nextflow DSL2 pipelines such that all modu
     Replace(
         'lib/NfcoreTemplate.groovy',
         old="""\
-        }
-    }
-
     //
     // Construct and send completion email
-    //
-    public static void email(workflow, params, summary_params, projectDir, log, multiqc_report=[]) {
-
 """,
         new="""\
-        }
-    }
-
     //
     // Generate version string
     //
@@ -734,9 +510,6 @@ We have standardised the structure of Nextflow DSL2 pipelines such that all modu
 
     //
     // Construct and send completion email
-    //
-    public static void email(workflow, params, summary_params, projectDir, log, multiqc_report=[]) {
-
 """,
     ),
     Replace(
@@ -849,13 +622,10 @@ We have standardised the structure of Nextflow DSL2 pipelines such that all modu
     Replace(
         'lib/WorkflowMain.groovy',
         old="""\
-        }
 
         // Validate workflow parameters via the JSON schema
-        if (params.validate_params) {
 """,
         new="""\
-        }
 
         // Print workflow version and exit on --version
         if (params.version) {
@@ -868,7 +638,6 @@ We have standardised the structure of Nextflow DSL2 pipelines such that all modu
         log.info paramsSummaryLog(workflow, params, log)
 
         // Validate workflow parameters via the JSON schema
-        if (params.validate_params) {
 """,
     ),
     Replace(
@@ -904,8 +673,17 @@ We have standardised the structure of Nextflow DSL2 pipelines such that all modu
     ),
     Replace(
         'modules/local/samplesheet_check.nf',
-        old='    path "versions.yml", emit: versions\n\n    script: // This script is bundled with the pipeline, in nf-core/{{pipeline_name}}/bin/\n    """\n',
-        new='    path "versions.yml", emit: versions\n\n    when:\n    task.ext.when == null || task.ext.when\n\n    script: // This script is bundled with the pipeline, in nf-core/{{pipeline_name}}/bin/\n    """\n',
+        old="""\
+
+    script: // This script is bundled with the pipeline, in nf-core/{{pipeline_name}}/bin/
+""",
+        new="""\
+
+    when:
+    task.ext.when == null || task.ext.when
+
+    script: // This script is bundled with the pipeline, in nf-core/{{pipeline_name}}/bin/
+""",
     ),
     Replace(
         'nextflow.config',
@@ -987,19 +765,10 @@ We have standardised the structure of Nextflow DSL2 pipelines such that all modu
     Replace(
         'nextflow_schema.json',
         old="""\
-                    "description": "Display help text.",
-                    "fa_icon": "fas fa-question-circle",
-                    "hidden": true
                 },
                 "publish_dir_mode": {
-                    "type": "string",
-                    "default": "copy",
-                    "description": "Method used to save pipeline results to output directory.",
 """,
         new="""\
-                    "description": "Display help text.",
-                    "fa_icon": "fas fa-question-circle",
-                    "hidden": true
                 },
                 "version": {
                     "type": "boolean",
@@ -1008,9 +777,6 @@ We have standardised the structure of Nextflow DSL2 pipelines such that all modu
                     "hidden": true
                 },
                 "publish_dir_mode": {
-                    "type": "string",
-                    "default": "copy",
-                    "description": "Method used to save pipeline results to output directory.",
 """,
     ),
     Replace(

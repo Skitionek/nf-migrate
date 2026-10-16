@@ -19,19 +19,15 @@ operations = [
     Replace(
         '.github/CONTRIBUTING.md',
         old="""\
-
 ## Tests
 
-When you create a pull request with changes, [GitHub Actions](https://github.com/features/actions) will run automatic tests.
 """,
         new="""\
-
 ## Tests
 
 You can optionally test your changes by running the pipeline locally. Then it is recommended to use the `debug` profile to
 receive warnings about process selectors and other debug info. Example: `nextflow run . -profile debug,test,docker --outdir <OUTDIR>`.
 
-When you create a pull request with changes, [GitHub Actions](https://github.com/features/actions) will run automatic tests.
 """,
     ),
     Replace(
@@ -414,19 +410,15 @@ import nextflow.extension.FilesEx
     Replace(
         'nextflow.config',
         old="""\
-// Capture exit codes from upstream processes when piping
 process.shell = ['/bin/bash', '-euo', 'pipefail']
 
-def trace_timestamp = new java.util.Date().format( 'yyyy-MM-dd_HH-mm-ss')
 """,
         new="""\
-// Capture exit codes from upstream processes when piping
 process.shell = ['/bin/bash', '-euo', 'pipefail']
 
 // Disable process selector warnings by default. Use debug profile to enable warnings.
 nextflow.enable.configProcessNamesValidation = false
 
-def trace_timestamp = new java.util.Date().format( 'yyyy-MM-dd_HH-mm-ss')
 """,
     ),
     NfCoreComponent(
