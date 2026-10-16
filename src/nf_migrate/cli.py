@@ -84,6 +84,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=Path("."),
         help="git repo holding the TEMPLATE branch",
     )
+    revision.add_argument(
+        "--changelog",
+        type=Path,
+        help="nf-core/tools CHANGELOG.md, to copy the release notes from",
+    )
     revision.set_defaults(handler=_revision)
 
     merge = commands.add_parser(
@@ -193,8 +198,11 @@ def _stamp(arguments: argparse.Namespace) -> int:
 
 
 def _revision(arguments: argparse.Namespace) -> int:
+    changelog = None
+    if arguments.changelog is not None:
+        changelog = arguments.changelog.read_text()
     generated = generate_migration(
-        arguments.repo, arguments.old_ref, arguments.new_ref
+        arguments.repo, arguments.old_ref, arguments.new_ref, changelog
     )
 
     arguments.migrations.mkdir(parents=True, exist_ok=True)

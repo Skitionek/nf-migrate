@@ -8,7 +8,31 @@ small idempotent operations, and applies them without an LLM:
 
 - `Replace(path, old, new)` — a template diff hunk. Applied when `old`
   occurs exactly once (line-aligned), skipped as already applied when only
-  `new` is present, otherwise a conflict.
+  `new` is present, otherwise a conflict. It looks past what pipelines
+  routinely change around template text: re-aligned or trimmed spaces,
+  re-indented Markdown lists and nested Nextflow blocks, Markdown
+  emphasis and bullet styles, and `TODO nf-core` notes the maintainers
+  resolved. Template lines next to `old` (`context_before`/`after`) pick
+  one occurrence where a pipeline has several; `every=True` changes all
+  of them (a CI step the pipeline copied); `requires` skips boilerplate
+  for files that no longer hold any (`TODO nf-core`).
+- `RemoveText(path, text)` — one paragraph of a template deletion; gone
+  already counts as applied, so a pipeline keeps the sections it rewrote.
+- `RegexReplace(path, pattern, replacement, applied)` — for template text
+  pipelines customise in known places: groups capture the pipeline's
+  parts and the replacement puts them back.
+- `BumpVersion(path, prefix, old, new)` — raises a version after `prefix`
+  on whatever line holds it, and leaves a newer one alone.
+- `YamlSet(path, key, value)` / `YamlListItem(path, key, item, match)` —
+  a YAML value, key or list item (a CI step) by its key path. Steps are
+  found by `id`, `name` or action, so a pipeline's own steps around them
+  do not matter.
+- `ReplaceFile(path, content, already)` — for a release that rewrote a
+  file (2.0 and 2.13 `main.nf`), the template's file unless the pipeline
+  is on the new structure already.
+- `FirstOf(path, operations)` — the exact template change first, then a
+  more tolerant one, so untouched pipelines still get the template's text
+  byte for byte.
 - `CreateFile(path, content)` / `DeleteFile(path, expected_content)` —
   delete only removes files the pipeline left untouched.
 - `NfCoreComponent(kind, name, git_sha)` — an nf-core module or subworkflow
@@ -139,10 +163,24 @@ lacks. The PR comment warns about a mismatch even without the flag.
 #    dependencies of their release date.
 scripts/build_template_history.sh scripts/sentinel.nf-core.yml history 4.1.0 4.2.0
 
-# 2. Generate the migration, then review it.
+# 2. Generate the migration, with the release's CHANGELOG notes as its
+#    docstring, then review it.
 nf-migrate --migrations src/nf_migrate/nf_core_migrations \
-    revision --repo history v4.1.0 v4.2.0
+    revision --repo history --changelog nf-core-tools/CHANGELOG.md \
+    v4.1.0 v4.2.0
 ```
+
+Migrations are edited by hand where real pipelines need more than the
+template diff. Those edits live as scripts in `scripts/learn/edits/`, so
+regenerating the chain keeps them:
+
+```bash
+scripts/learn/rebuild.sh history nf-core-tools/CHANGELOG.md
+```
+
+`scripts/learn/` also replays every merged template update of the nf-core
+pipelines against the chain, to find what to edit; see
+[docs/validation.md](docs/validation.md).
 
 Other commands: `current`, `history`, `upgrade <revision>`, and
 `stamp <revision>` to record a version after resolving a step by hand.
@@ -152,14 +190,15 @@ Migrations may also define their own operation classes: anything with a
 
 ## Validation
 
-Replaying 43 real template merges from 11 nf-core pipelines, 83% of the
-template changes applied automatically, and 79% of the files nf-migrate
-changed matched what the maintainers merged by hand. Nearly every merge
-still had a few conflicts, mostly in code the pipeline owns
-(`workflows/<name>.nf`, the local utils subworkflow, README.md,
-nextflow.config): 8 of 40 merges would have gone through untouched. See
-[docs/validation.md](docs/validation.md) for the method, per-pipeline
-results, version detection and how to reproduce it.
+The chain was tuned against every merged template update of the nf-core
+pipelines: 1,213 sync PRs from 129 pipelines, 1,127 of them from 1.9 or
+later. On the lines a template update changes, 91.2% of nf-migrate's
+operations end up where the maintainers put them, up from 89.8%;
+conflicts dropped by a quarter, from 22,785 to 17,269. Most of what is
+left is code and prose the pipeline owns (`workflows/<name>.nf`, README,
+docs), where the maintainers decided case by case. See
+[docs/validation.md](docs/validation.md) for the method, the score per
+release, and the earlier 11-pipeline evaluation.
 
 ## Development
 
