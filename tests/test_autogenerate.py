@@ -300,3 +300,108 @@ def test_a_hunk_reads_as_already_applied_on_the_new_template(
     # Then
     assert outcomes == [Outcome.ALREADY_APPLIED] * len(hunks)
     assert workspace.read("output.md") == new_text
+
+
+# Renders of releases before nf-core/tools 3.0
+RENDER_METADATA_2_2 = """\
+nf_core_version: '2.2'
+template:
+  name: sentinelpipe
+  description: Sentinel pipeline description
+"""
+RENDER_METADATA_2_3 = RENDER_METADATA_2_2.replace("'2.2'", "'2.3'")
+
+
+def test_legacy_render_metadata_stays_out_of_the_migration(
+    tmp_path: Path,
+) -> None:
+    # Given 2.2 rendered no .nf-core.yml and 2.3 a bare one, with the
+    # render's version and values kept beside them
+    template_repo = tmp_path / "template"
+    template_repo.mkdir()
+    git(template_repo, "init", "-q")
+    git(template_repo, "config", "user.email", "t@example.com")
+    git(template_repo, "config", "user.name", "t")
+    old_ref = commit_files(
+        template_repo,
+        {
+            ".nf-migrate-render.yml": RENDER_METADATA_2_2,
+            "README.md": "# nf-core/sentinelpipe\n",
+        },
+    )
+    new_ref = commit_files(
+        template_repo,
+        {
+            ".nf-migrate-render.yml": RENDER_METADATA_2_3,
+            ".nf-core.yml": "repository_type: pipeline\n",
+            "README.md": "# nf-core/sentinelpipe\n\nSentinel pipeline\n",
+        },
+    )
+
+    # And a pipeline from before nf-core/tools wrote .nf-core.yml
+    pipeline = tmp_path / "pipeline"
+    pipeline.mkdir()
+    (pipeline / "README.md").write_text("# nf-core/slamseq\n")
+    (pipeline / "nextflow.config").write_text(
+        "manifest {\n  name = 'nf-core/slamseq'\n}\n"
+    )
+
+    # When
+    generated = generate_migration(template_repo, old_ref, new_ref)
+    migrations_dir = tmp_path / "migrations"
+    migrations_dir.mkdir()
+    (migrations_dir / "v2_3.py").write_text(generated.source)
+    report = upgrade(
+        pipeline, load_migrations(migrations_dir), target="head", current="2.2"
+    )
+
+    # Then
+    assert generated.revision == "2.3"
+    assert generated.down_revision == "2.2"
+    assert ".nf-migrate-render.yml" not in generated.source
+    assert report.succeeded, report.render()
+    assert (pipeline / ".nf-core.yml").read_text() == (
+        "nf_core_version: '2.3'\nrepository_type: pipeline\n"
+    )
+    assert (pipeline / "README.md").read_text() == (
+        "# nf-core/slamseq\n\nSentinel pipeline\n"
+    )
+
+
+# Changes a release made by mistake
+def test_a_release_note_leaked_into_the_changelog_is_left_out(
+    tmp_path: Path,
+) -> None:
+    # Given 2.3.1, which put an nf-core/tools release note into CHANGELOG.md
+    template_repo = tmp_path / "template"
+    template_repo.mkdir()
+    git(template_repo, "init", "-q")
+    git(template_repo, "config", "user.email", "t@example.com")
+    git(template_repo, "config", "user.name", "t")
+    changelog = "## v1.0dev\n\n### `Fixed`\n\n{}### `Dependencies`\n"
+    old_ref = commit_files(
+        template_repo,
+        {
+            ".nf-core.yml": "nf_core_version: '2.3'\n",
+            "CHANGELOG.md": changelog.format(""),
+            "main.nf": "workflow {}\n",
+        },
+    )
+    new_ref = commit_files(
+        template_repo,
+        {
+            ".nf-core.yml": "nf_core_version: 2.3.1\n",
+            "CHANGELOG.md": changelog.format(
+                "- Clarified conda usage and added a tutorial\n\n"
+            ),
+            "main.nf": "workflow { main: }\n",
+        },
+    )
+
+    # When
+    generated = generate_migration(template_repo, old_ref, new_ref)
+
+    # Then
+    assert "'CHANGELOG.md'," not in generated.source
+    assert "# Left out: 2.3.1 added 'Clarified conda usage'" in generated.source
+    assert "workflow { main: }" in generated.source
