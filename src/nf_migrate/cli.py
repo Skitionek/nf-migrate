@@ -118,6 +118,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="follow the merge with `nf-core pipelines lint --fix` commits",
     )
+    merge.add_argument(
+        "--compile-check",
+        action="store_true",
+        help="warn if `nextflow inspect` cannot compile the merged pipeline",
+    )
     merge.set_defaults(handler=_merge_template)
 
     return parser
@@ -132,10 +137,17 @@ def _merge_template(arguments: argparse.Namespace) -> int:
         detect=arguments.detect,
         allow_conflicts=arguments.allow_conflicts,
         lint_fix=arguments.lint_fix,
+        compile_check=arguments.compile_check,
     )
     if arguments.report_file is not None:
         arguments.report_file.write_text(result.render_markdown())
     print(result.report.render() or "already up to date", file=sys.stderr)
+    if result.compile_check is not None and not result.compile_check.passed:
+        print(
+            "warning: Nextflow could not compile the merged pipeline:\n"
+            + result.compile_check.error,
+            file=sys.stderr,
+        )
     if result.commit is None:
         return 1
     print(result.commit)
