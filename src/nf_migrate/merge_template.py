@@ -14,6 +14,7 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from nf_migrate.compile_check import CompileCheck, run_compile_check
 from nf_migrate.detect import Detection, detect_version
 from nf_migrate.migrations import MigrationError, load_migrations
 from nf_migrate.runner import UpgradeReport, upgrade
@@ -31,6 +32,7 @@ class MergeResult:
     detection: Detection
     report: UpgradeReport
     commit: str | None
+    compile_check: CompileCheck | None = None
 
     def render_markdown(self) -> str:
         lines = [f"### nf-migrate: template {self.target_version}", ""]
@@ -51,6 +53,9 @@ class MergeResult:
             )
             lines.append("")
         lines.append(self.report.render_markdown())
+        if self.compile_check is not None and not self.compile_check.passed:
+            lines.append("")
+            lines.append(self.compile_check.render_markdown())
         return "\n".join(lines)
 
 
@@ -62,6 +67,7 @@ def merge_template(
     detect: bool = False,
     allow_conflicts: bool = False,
     lint_fix: bool = False,
+    compile_check: bool = False,
 ) -> MergeResult:
     """Upgrade `base` to the template version on `head`.
 
@@ -72,7 +78,9 @@ def merge_template(
     the stamp. With `allow_conflicts` the merge commit holds every change
     that fits, and the report lists the conflicts left for review.
     With `lint_fix`, `nf-core pipelines lint --fix` commits follow the merge
-    and the last of them is returned.
+    and the last of them is returned. With `compile_check`, Nextflow
+    inspects the final tree; a failure is recorded in the result and leaves
+    the commits as they are.
     """
     base_sha = _git(repo, "rev-parse", "--verify", f"{base}^{{commit}}")
     head_sha = _git(repo, "rev-parse", "--verify", f"{head}^{{commit}}")
@@ -105,6 +113,7 @@ def merge_template(
                 allow_conflicts=allow_conflicts,
             )
             commit = None
+            compile_result = None
             if report.succeeded or allow_conflicts:
                 commit = _commit_merge(
                     worktree, base_sha, head_sha, target_version
@@ -113,12 +122,22 @@ def merge_template(
                     commit = _commit_lint_fixes(
                         worktree, commit, head_sha, target_version
                     )
+                if compile_check:
+                    # The worktree holds the final tree, lint fixes included.
+                    compile_result = run_compile_check(worktree)
         finally:
             _git(repo, "worktree", "remove", "--force", str(worktree))
 
     if start_version is None:
         start_version = detection.stamped
-    return MergeResult(target_version, start_version, detection, report, commit)
+    return MergeResult(
+        target_version,
+        start_version,
+        detection,
+        report,
+        commit,
+        compile_result,
+    )
 
 
 def _template_version(repo: Path, head: str, head_sha: str) -> str:

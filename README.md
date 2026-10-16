@@ -140,6 +140,16 @@ the nf-core release of the template through `uvx`, because CI lints with that
 release, and puts back the logos of the template branch, which nf-core would
 redraw. It prints the last commit.
 
+`merge-template --compile-check` then runs `nextflow inspect -format json` on
+the final tree, to catch what lint reports late and under another name, such
+as an `include` of a name that an updated shared subworkflow no longer has.
+`nextflow config` does not parse the scripts and passes on such a pipeline, so
+`inspect` is the cheapest command that compiles them; it runs no process, and
+neither nf-test nor the pipeline. A failure never changes the commits: the
+first lines of Nextflow's error go to stderr and into the report as a warning,
+and the exit code stays 0, because Nextflow may also fail on a network
+resource. Without the `nextflow` command the option stops with an error.
+
 To resolve a sync PR the action cannot, see
 [docs/resolving-template-prs.md](docs/resolving-template-prs.md).
 

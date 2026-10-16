@@ -1,3 +1,4 @@
+import os
 import subprocess
 from pathlib import Path
 
@@ -441,3 +442,182 @@ def test_lint_fix_keeps_the_logos_of_the_template_branch(
     assert git(
         repo, "show", f"{result.commit}:nf-core-pipeline_logo_light.png"
     ) == ("template logo")
+
+
+@pytest.fixture
+def fake_nextflow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A `nextflow` on PATH that logs its call and fails with the message in
+    `FAKE_NEXTFLOW_ERROR`, if set. Request it after `fake_nf_core`, which
+    replaces PATH."""
+    bin_directory = tmp_path / "nextflow-bin"
+    bin_directory.mkdir()
+    executable = bin_directory / "nextflow"
+    executable.write_text(
+        "#!/bin/sh\n"
+        'echo "ansi=$NXF_ANSI_LOG args=$*" >> "$FAKE_NEXTFLOW_LOG"\n'
+        'echo "cwd=$(pwd)" >> "$FAKE_NEXTFLOW_LOG"\n'
+        # $4 is the pipeline directory in `inspect -format json DIR`.
+        'echo "files=$(ls "$4" | tr "\\n" " ")" >> "$FAKE_NEXTFLOW_LOG"\n'
+        'if [ -n "$FAKE_NEXTFLOW_ERROR" ]; then\n'
+        '  echo "$FAKE_NEXTFLOW_ERROR" >&2\n'
+        "  exit 1\n"
+        "fi\n"
+        "echo '{\"processes\": []}'\n"
+    )
+    executable.chmod(0o755)
+    log = tmp_path / "nextflow.log"
+    monkeypatch.setenv("FAKE_NEXTFLOW_LOG", str(log))
+    monkeypatch.setenv("PATH", f"{bin_directory}:{os.environ['PATH']}")
+    return log
+
+
+IM_NOTIFICATION_ERROR = (
+    "Error main.nf:1:1: Included name 'imNotification' is not defined in "
+    "module 'utils_nfcore_pipeline'"
+)
+
+
+def test_compile_check_passes_when_nextflow_inspects_the_pipeline(
+    repo: Path, migrations_dir: Path, fake_nextflow: Path
+) -> None:
+    # Given
+    # a nextflow that compiles the pipeline
+
+    # When
+    result = merge_template(
+        repo, "dev", "TEMPLATE", migrations_dir, compile_check=True
+    )
+
+    # Then
+    assert result.commit is not None
+    assert result.compile_check is not None
+    assert result.compile_check.passed
+    assert "compile" not in result.render_markdown().lower()
+    log_lines = fake_nextflow.read_text().splitlines()
+    assert log_lines[0].startswith("ansi=false args=inspect -format json ")
+
+
+def test_compile_check_runs_nextflow_outside_the_pipeline_and_checkout(
+    repo: Path, migrations_dir: Path, fake_nextflow: Path
+) -> None:
+    # Given
+    # nextflow writes .nextflow/ and work/ into its working directory
+
+    # When
+    merge_template(repo, "dev", "TEMPLATE", migrations_dir, compile_check=True)
+
+    # Then
+    log_lines = fake_nextflow.read_text().splitlines()
+    working_directory = Path(log_lines[1].removeprefix("cwd="))
+    assert working_directory != Path.cwd()
+    assert working_directory != repo
+
+
+def test_failed_compile_check_keeps_the_commit_and_reports_a_warning(
+    repo: Path,
+    migrations_dir: Path,
+    fake_nextflow: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given a pipeline that Nextflow cannot compile
+    monkeypatch.setenv("FAKE_NEXTFLOW_ERROR", IM_NOTIFICATION_ERROR)
+
+    # When
+    result = merge_template(
+        repo, "dev", "TEMPLATE", migrations_dir, compile_check=True
+    )
+
+    # Then
+    assert result.commit is not None
+    assert git(repo, "cat-file", "-t", result.commit) == "commit"
+    assert result.compile_check is not None
+    assert not result.compile_check.passed
+    markdown = result.render_markdown()
+    assert "[!WARNING]" in markdown
+    assert "Nextflow could not compile the merged pipeline" in markdown
+    assert "Included name 'imNotification' is not defined" in markdown
+
+
+def test_compile_check_inspects_the_tree_after_the_lint_fix_commits(
+    repo: Path,
+    migrations_dir: Path,
+    fake_nf_core: Path,
+    fake_nextflow: Path,
+) -> None:
+    # Given
+    # lint-fix commits files that only exist after the merge
+
+    # When
+    merge_template(
+        repo,
+        "dev",
+        "TEMPLATE",
+        migrations_dir,
+        lint_fix=True,
+        compile_check=True,
+    )
+
+    # Then
+    log_lines = fake_nextflow.read_text().splitlines()
+    assert "container_configs.fixed" in log_lines[2]
+
+
+def test_compile_check_is_off_by_default(
+    repo: Path, migrations_dir: Path, fake_nextflow: Path
+) -> None:
+    # Given
+    # a nextflow on PATH
+
+    # When
+    result = merge_template(repo, "dev", "TEMPLATE", migrations_dir)
+
+    # Then
+    assert result.compile_check is None
+    assert not fake_nextflow.exists()
+
+
+def test_compile_check_without_nextflow_is_an_error_not_a_warning(
+    repo: Path, migrations_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Given a PATH without nextflow
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+
+    # When
+    with pytest.raises(MigrationError) as error:
+        merge_template(
+            repo, "dev", "TEMPLATE", migrations_dir, compile_check=True
+        )
+
+    # Then
+    assert "--compile-check needs the nextflow command" in str(error.value)
+
+
+def test_cli_compile_check_failure_warns_on_stderr_and_exits_zero(
+    repo: Path,
+    migrations_dir: Path,
+    fake_nextflow: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+) -> None:
+    # Given
+    monkeypatch.setenv("FAKE_NEXTFLOW_ERROR", IM_NOTIFICATION_ERROR)
+
+    # When
+    exit_code = main(
+        [
+            "--migrations",
+            str(migrations_dir),
+            "merge-template",
+            "--repo",
+            str(repo),
+            "--compile-check",
+            "dev",
+            "TEMPLATE",
+        ]
+    )
+
+    # Then
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert git(repo, "cat-file", "-t", captured.out.strip()) == "commit"
+    assert "Included name 'imNotification' is not defined" in captured.err
