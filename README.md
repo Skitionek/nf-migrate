@@ -140,6 +140,9 @@ the nf-core release of the template through `uvx`, because CI lints with that
 release, and puts back the logos of the template branch, which nf-core would
 redraw. It prints the last commit.
 
+To resolve a sync PR the action cannot, see
+[docs/resolving-template-prs.md](docs/resolving-template-prs.md).
+
 ## Pipelines older than nf-core/tools 3.0
 
 The chain starts at 1.9 because some nf-core pipelines never merged a
