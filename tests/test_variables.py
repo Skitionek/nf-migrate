@@ -32,6 +32,7 @@ def test_template_variables_are_read_from_nf_core_yml() -> None:
     assert variables == {
         "pipeline_name": "rnaseq",
         "PIPELINE_NAME": "RNASEQ",
+        "Pipeline_name": "Rnaseq",
         "pipeline_author": "Harshil Patel, Phil Ewels",
         "pipeline_description": "RNA sequencing analysis pipeline.",
         "pipeline_version": "3.28.0dev",
@@ -56,6 +57,23 @@ def test_templatize_and_expand_round_trip_between_pipelines() -> None:
         "include { {{PIPELINE_NAME}} } from './workflows/{{pipeline_name}}'\n"
     )
     assert expanded == "include { RNASEQ } from './workflows/rnaseq'\n"
+
+
+def test_the_capitalised_name_of_tools_2_workflow_classes_round_trips() -> None:
+    # Given lib/Workflow<Name>.groovy as nf-core/tools 2.x renders it
+    sentinel = template_variables(
+        "template:\n  name: sentinelpipe\n  author: Sentinel Author\n"
+    )
+    rnaseq = template_variables("template:\n  name: rnaseq\n")
+    rendered = "WorkflowSentinelpipe.initialise(params, log)\n"
+
+    # When
+    template = templatize(rendered, sentinel)
+    expanded = expand(template, rnaseq)
+
+    # Then
+    assert template == "Workflow{{Pipeline_name}}.initialise(params, log)\n"
+    assert expanded == "WorkflowRnaseq.initialise(params, log)\n"
 
 
 # Pipelines from before nf-core/tools 3.0
@@ -88,6 +106,7 @@ def test_variables_come_from_the_manifest_without_a_template_section(
     assert variables == {
         "pipeline_name": "slamseq",
         "PIPELINE_NAME": "SLAMSEQ",
+        "Pipeline_name": "Slamseq",
         "pipeline_author": "Tobias Neumann",
         "pipeline_description": "SLAMSeq processing and analysis pipeline",
         "pipeline_version": "1.0.0",

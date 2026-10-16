@@ -1,10 +1,216 @@
-# Validation across 11 pipelines
+# Validation
+
+## Every merged template update (October 2026)
+
+The bundled chain (nf-core/tools 1.9 → 4.1.0) was tuned release by release
+against the template updates nf-core maintainers actually merged, and
+scored the same way before and after.
+
+### Samples
+
+All 159 repositories of the nf-core pipelines list were cloned on
+2026-10-16 (157 still exist). A template update is a first-parent commit
+on `dev` (or the default branch) that brings in new `TEMPLATE` commits:
+the merge of a sync PR. Its versions come from the `TEMPLATE` history
+itself, not from `nf_core_version`, which older pipelines lack: the
+newest `TEMPLATE` commit the branch had before, and the newest it brings
+in. That gives 1,213 merged updates from 129 pipelines; 1,127 start at
+1.9 or later and are replayed. Each is replayed straight from git objects
+([`scripts/learn/evaluate.py`](../scripts/learn/evaluate.py)): the
+migrations from its from-version to its to-version are applied to the
+commit before the merge, every operation even after a conflict, and the
+result is compared with the merge.
+
+### Scoring "conceptually the same"
+
+A sync PR is more than the template change: maintainers fix things,
+update modules, write CHANGELOG entries. So nothing is compared byte for
+byte. For each operation, only the lines it adds or removes count,
+whitespace-insensitive, and the score asks whether nf-migrate's result
+and the maintainers' merge agree on each of those lines being there. A
+change the maintainers adapted (applied around their own edits) counts as
+applied; one they left out counts as kept. Two kinds of samples are not
+scored:
+
+- files whose merge was committed with conflict markers (several 1.x and
+  2.x merges did), which hold both sides;
+- operations whose change a later release in the same PR overwrites.
+
+When looking for what to fix, only single-release PRs count
+([`scripts/learn/worklist.py`](../scripts/learn/worklist.py)): in a PR
+spanning several releases, one conflict early on leaves the file in its
+old state and every later change to it fails as well.
+
+### Results
+
+| | Before | After |
+|---|---|---|
+| Operations agreeing with the maintainers | 89.8% (83,542 / 93,047) | 91.2% (89,235 / 97,873) |
+| Conflicts | 22,785 | 17,269 |
+| Template-changed lines handled as the maintainers did | 86.4% | 88.3% |
+| PRs replayed without any conflict | 116 / 1,127 | 152 / 1,127 |
+
+Before is commit `06f8033` (nf-migrate 0.2.0 and the fixes after it);
+after is this version. The operation count grows
+because large deletions are now removed paragraph by paragraph.
+
+Most of the gain came from changes to how operations match, which help
+every release at once:
+
+- **Placeholders.** 2.x renders name the workflow class
+  `lib/Workflow<Name>.groovy` with a capitalised name, which no
+  placeholder covered; 29 operations pointed at a file no pipeline has.
+  `{{Pipeline_name}}` fixes them.
+- **Layout.** Re-aligned or trimmed spaces, Markdown lists re-indented by
+  a formatter, `__bold__` written as `**bold**`, and template blocks a
+  pipeline nested one level deeper in its own Nextflow code no longer
+  stop a change.
+- **Resolved notes.** Maintainers delete `TODO nf-core` notes once they
+  act on them; a hunk holding one now also matches without it, and
+  template boilerplate (a new TODO, a placeholder sentence) is not added
+  to files that have none left.
+- **Deletions.** A template deletion is removed paragraph by paragraph
+  (`RemoveText`), so the generic sections a pipeline kept go and the ones
+  it rewrote stay, as the maintainers did in 1.10 and 2.0.
+- **Repeated text.** Template lines around a hunk pick the occurrence when
+  a pipeline has the text twice; a one-line CI change applies to every
+  copy of a step.
+- **YAML by key path.** GitHub workflow changes are made on the value,
+  key or step they concern (`YamlSet`, `YamlListItem`); steps are found
+  by `id`, `name` or action, wherever the pipeline put them.
+- **Versions.** A version bump in a line the pipeline also edited (a
+  plugin id with its own comment) raises the version alone
+  (`BumpVersion`), and never lowers a newer one.
+
+Hand edits, kept as scripts in
+[`scripts/learn/edits/`](../scripts/learn/edits), cover what the template
+diff cannot express: `main.nf` in 2.0 and 2.13 and
+`bin/scrape_software_versions.py` in 2.0 replaced as a whole
+(`ReplaceFile`), since in every converting PR the maintainers took the
+template's file and moved their own code; blocks re-anchored where
+pipelines extend the neighbouring text (container profiles, igenomes
+entries, `modules.config`, the help arguments of 3.4.0); and patterns
+for the parts pipelines customise (the `helpMessage()` body, the table of
+contents in `usage.md`, `check_max` around a pipeline's own resources).
+Each edit is a `FirstOf` that tries the exact template change first, so
+the chain still turns each release's render into the next one byte for
+byte.
+
+### Score per release
+
+Share of the release's operations that agree with the maintainers, over
+every PR whose range includes the release.
+
+| Release | PRs | Before | After |
+|---|---|---|---|
+| 1.10 | 16 | 88.0% | 88.9% |
+| 1.10.1 | 1 | 100.0% | 100.0% |
+| 1.10.2 | 16 | 90.0% | 92.7% |
+| 1.11 | 20 | 87.6% | 89.8% |
+| 1.12 | 21 | 86.2% | 91.9% |
+| 1.12.1 | 25 | 80.6% | 88.4% |
+| 1.13 | 31 | 82.2% | 86.8% |
+| 1.13.1 | 30 | 100.0% | 100.0% |
+| 1.13.2 | 20 | 92.6% | 91.4% |
+| 1.13.3 | 11 | 100.0% | 100.0% |
+| 1.14 | 31 | 94.1% | 94.4% |
+| 2.0 | 29 | 77.4% | 81.5% |
+| 2.0.1 | 27 | 96.3% | 100.0% |
+| 2.1 | 31 | 87.0% | 87.0% |
+| 2.2 | 32 | 84.8% | 88.9% |
+| 2.3 | 36 | 84.6% | 84.9% |
+| 2.3.1 | 38 | 90.5% | 88.4% |
+| 2.3.2 | 38 | 96.6% | 94.2% |
+| 2.4 | 43 | 91.8% | 91.0% |
+| 2.5 | 45 | 84.0% | 85.5% |
+| 2.5.1 | 40 | 85.4% | 85.4% |
+| 2.6 | 47 | 85.4% | 86.8% |
+| 2.7 | 52 | 93.2% | 94.8% |
+| 2.7.2 | 52 | 92.1% | 94.8% |
+| 2.8 | 57 | 88.2% | 88.6% |
+| 2.9 | 61 | 88.9% | 90.5% |
+| 2.10 | 68 | 93.8% | 93.2% |
+| 2.11 | 71 | 90.6% | 92.8% |
+| 2.11.1 | 71 | 95.5% | 95.0% |
+| 2.12 | 73 | 94.4% | 95.2% |
+| 2.13 | 74 | 83.9% | 85.1% |
+| 2.13.1 | 76 | 91.2% | 92.2% |
+| 2.14.0 | 75 | 94.6% | 95.4% |
+| 2.14.1 | 67 | 100.0% | 97.3% |
+| 3.0.0 | 85 | 90.7% | 92.8% |
+| 3.0.1 | 85 | 94.7% | 93.7% |
+| 3.0.2 | 85 | 89.6% | 91.0% |
+| 3.1.0 | 87 | 91.5% | 92.5% |
+| 3.1.1 | 87 | 93.8% | 94.7% |
+| 3.1.2 | 87 | 92.2% | 92.0% |
+| 3.2.0 | 88 | 92.0% | 93.6% |
+| 3.2.1 | 90 | 90.1% | 94.0% |
+| 3.3.0 | 88 | 90.1% | 92.1% |
+| 3.3.1 | 45 | 83.9% | 84.4% |
+| 3.3.2 | 83 | 91.3% | 93.2% |
+| 3.4.0 | 84 | 92.7% | 94.3% |
+| 3.4.1 | 84 | 92.4% | 92.4% |
+| 3.5.0 | 85 | 89.2% | 91.1% |
+| 3.5.1 | 63 | 93.7% | 95.2% |
+| 3.5.2 | 2 | 100.0% | 100.0% |
+| 4.0.0 | 80 | 90.3% | 91.3% |
+| 4.0.1 | 70 | 98.5% | 98.5% |
+| 4.0.2 | 80 | 93.5% | 94.2% |
+| 4.0.3 | 70 | 98.9% | 98.9% |
+| 4.1.0 | 48 | 92.9% | 94.1% |
+
+The few that went down did so by under three points, from the generic
+changes: applying a CI change to every copy of a step, or skipping
+boilerplate, is what most maintainers did, but not all.
+
+### Where it still disagrees
+
+What is left is mostly code and prose the pipeline owns:
+`workflows/<name>.nf`, README.md, `docs/usage.md` and `docs/output.md`,
+`nextflow.config` and the local utils subworkflow. Maintainers rewrote
+the template's example workflow body and documentation, and decided case
+by case which template text to take. Two other limits:
+
+- **Multi-release PRs cascade.** A conflict in one release leaves a file
+  behind, and later releases' changes to it no longer find their text.
+- **Moved blocks.** When a release moves a block (2.0 moved `profiles`),
+  finding the moved-to text reads as applied even if the pipeline still
+  has an edited copy at the old place.
+
+### Reproducing
+
+```bash
+# Clone every pipeline (full clones: blobs are read for each commit).
+# names.txt: one name per line, from https://nf-co.re/pipelines.json.
+mkdir -p pipelines
+while read -r name; do
+  git clone --quiet --no-single-branch "https://github.com/nf-core/$name.git" \
+    "pipelines/$name"
+done < names.txt
+
+# Renders of every release (see the README), and the nf-core/tools CHANGELOG.
+uv run python scripts/learn/collect.py pipelines > merges.jsonl
+NF_MIGRATE_PIPELINES=pipelines uv run python scripts/learn/evaluate.py \
+  merges.jsonl history src/nf_migrate/nf_core_migrations eval.jsonl
+uv run python scripts/learn/scores.py eval.jsonl src/nf_migrate/nf_core_migrations
+uv run python scripts/learn/worklist.py eval.jsonl --min 4
+uv run python scripts/learn/report.py summary eval.jsonl --rev 3.0.0
+NF_MIGRATE_PIPELINES=pipelines uv run python scripts/learn/triage.py \
+  eval.jsonl merges.jsonl src/nf_migrate/nf_core_migrations 3.0.0 --min 4
+
+# After editing an operation or a migration: the chain still has to turn
+# each render into the next, and compare.py shows what got better or worse.
+uv run python scripts/learn/check_renders.py history src/nf_migrate/nf_core_migrations
+uv run python scripts/learn/compare.py eval-before.jsonl eval.jsonl
+```
+
+## Earlier evaluation: 11 pipelines, nf-migrate 0.2.0
 
 How well does the bundled migration chain (nf-core/tools 3.3.1 → 4.1.0) do
 on real pipelines, compared with the template merges their maintainers
 resolved by hand? Figures are for nf-migrate 0.2.0.
 
-## Method
+### Method
 
 Every nf-core pipeline keeps a `TEMPLATE` branch with one commit per tools
 release, and merges each of those commits into `dev` through a sync PR.
@@ -43,13 +249,13 @@ measures whether what nf-migrate did is what the maintainers did; it does
 not measure completeness, since a merge PR often holds further edits (a
 CHANGELOG entry, module updates, fixes).
 
-## Pipelines
+### Pipelines
 
 rnaseq, sarek, mag, taxprofiler, ampliseq, methylseq, fetchngs, scrnaseq,
 differentialabundance, atacseq and chipseq: widely used pipelines with
 template merges in the 3.3.1–4.1.0 range, evaluated on 2026-10-15.
 
-## Results
+### Results
 
 | Pipeline | Merges | Applied | Already applied | Conflict | Manual step | Changed files identical to the human merge |
 |---|---|---|---|---|---|---|
@@ -89,7 +295,7 @@ from 5 to 8 of 40. Some conflicts now count more than once: a change that
 was one operation can become several smaller ones, which is why
 `workflows/<name>.nf` went from 110 to 129 conflicts.
 
-## Where the conflicts are
+### Where the conflicts are
 
 | Conflicts | File |
 |---|---|
@@ -126,7 +332,7 @@ steps, they caused a further 36 of rnaseq's 97 conflicts: pipelines update
 modules with `nf-core modules update`, often past the template's pinned
 version, so patching their files as text could not match.
 
-## Version detection
+### Version detection
 
 `nf-migrate detect` works out the template version from the files instead
 of trusting `nf_core_version`. On the 43 pre-merge snapshots it agreed with
@@ -161,7 +367,7 @@ at the cost of more conflicts. That trade-off is why detection is opt-in
 (`--detect`, or the action's `detect-version`), while the report warns
 about a mismatch either way.
 
-## Pipelines older than nf-core/tools 3.0
+### Pipelines older than nf-core/tools 3.0
 
 The chain was extended from 3.3.1 down to 1.9 because slamseq, imcyto and
 mnaseseq never merged a template newer than 1.9. Their migrations were
@@ -202,7 +408,7 @@ usage ...") into the pipeline CHANGELOG and 2.3.2 removed it, so
 `UNINTENDED_CHANGES` in `autogenerate.py`), while `v2_3_2.py` still removes
 it from pipelines that merged it.
 
-## Skipped merges
+### Skipped merges
 
 Six merges fall outside the chain as it stood for this evaluation and were
 not evaluated. The chain now starts at 1.9, but they have not been re-run:
@@ -213,7 +419,7 @@ not evaluated. The chain now starts at 1.9, but they have not been re-run:
 - fetchngs: `dev` was already stamped 3.5.2 when a 3.5.1 `TEMPLATE` commit
   was merged, and nf-migrate only upgrades.
 
-## Limits
+### Limits
 
 - **All-or-nothing releases by default.** One conflict blocks a whole
   release. `--allow-conflicts` writes everything that fits instead, but
@@ -232,7 +438,7 @@ not evaluated. The chain now starts at 1.9, but they have not been re-run:
   unrelated work done in the same PR, which lowers the
   "identical to the human merge" figure without nf-migrate being wrong.
 
-## Reproducing
+### Reproducing
 
 ```bash
 # Blob-less clones keep every branch and the history without downloading

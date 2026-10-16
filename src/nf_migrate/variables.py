@@ -26,6 +26,8 @@ class TemplateVariableError(Exception):
 VARIABLE_SOURCES = {
     "pipeline_name": "name",
     "PIPELINE_NAME": "name",
+    # nf-core/tools 2.x names its workflow classes lib/Workflow<Name>.groovy.
+    "Pipeline_name": "name",
     "pipeline_author": "author",
     "pipeline_description": "description",
     "pipeline_version": "version",
@@ -90,6 +92,9 @@ def _variables_from_template(template: dict) -> dict[str, str]:
             variables[name] = str(value)
     if "PIPELINE_NAME" in variables:
         variables["PIPELINE_NAME"] = variables["PIPELINE_NAME"].upper()
+    if "Pipeline_name" in variables:
+        name = variables["Pipeline_name"]
+        variables["Pipeline_name"] = name[:1].upper() + name[1:]
     return variables
 
 

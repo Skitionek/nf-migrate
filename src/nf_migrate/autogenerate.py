@@ -8,19 +8,25 @@ the migration applies to any pipeline.
 """
 
 import json
+import re
 import subprocess
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from fnmatch import fnmatch
 from pathlib import Path
 
+from nf_migrate.changelog import release_notes
 from nf_migrate.operations import (
     NF_CORE_MODULES_REPO,
+    TODO_NOTE,
+    VERSION,
+    _version_key,
     find_line_aligned,
     is_inside_match,
 )
 from nf_migrate.variables import placeholder, template_variables, templatize
 from nf_migrate.version import NF_CORE_YML, parse_version, stamp_version
+from nf_migrate.yaml_edit import YamlListItem, yaml_changes
 
 MODULES_JSON = "modules.json"
 COMPONENT_KINDS = ("modules", "subworkflows")
@@ -75,8 +81,13 @@ class Hunk:
 
 
 def generate_migration(
-    repo: Path, old_ref: str, new_ref: str
+    repo: Path, old_ref: str, new_ref: str, changelog: str | None = None
 ) -> GeneratedMigration:
+    """The migration from `old_ref` to `new_ref`.
+
+    With the nf-core/tools `changelog`, the release's notes go into the
+    migration's docstring.
+    """
     old_metadata = _render_metadata(repo, old_ref)
     new_metadata = _render_metadata(repo, new_ref)
     old_version = parse_version(old_metadata)
@@ -123,7 +134,10 @@ def generate_migration(
         instruction = GENERATED_FILE_INSTRUCTIONS[pattern]
         operation_sources.append(_call("ManualStep", pattern, instruction))
 
-    source = _render_module(old_version, new_version, operation_sources)
+    notes = None
+    if changelog is not None:
+        notes = release_notes(changelog, new_version)
+    source = _render_module(old_version, new_version, operation_sources, notes)
     return GeneratedMigration(new_version, old_version, source)
 
 
@@ -218,7 +232,13 @@ def _operations_for_change(
         return []
 
     operations: list[str] = []
-    for old_block, new_block in diff_hunks(old_text, new_text):
+    is_yaml = change.path.endswith((".yml", ".yaml"))
+    # The template file as the blocks so far leave it.
+    current_text = old_text
+    for block in diff_blocks(old_text, new_text):
+        old_block, new_block = block.old, block.new
+        text_before_block = current_text
+        current_text = _apply_block(current_text, block)
         unintended = _unintended_change(
             version, change.path, old_block, new_block
         )
@@ -228,17 +248,235 @@ def _operations_for_change(
                 f"{change.path} by mistake."
             )
             continue
+        # Values in YAML are found by key path, whatever the lines around.
+        if is_yaml:
+            yaml_operations = yaml_changes(text_before_block, current_text)
+            if yaml_operations is not None:
+                operations.extend(
+                    _yaml_call(path, operation, variables)
+                    for operation in yaml_operations
+                )
+                continue
         old = templatize(old_block, variables)
+        if new_block is None:
+            operations.append(_call("RemoveText", path, text=old))
+            continue
         new = templatize(new_block, variables)
-        operations.append(_call("Replace", path, old=old, new=new))
+        context = {}
+        if block.context_before:
+            context["context_before"] = templatize(
+                block.context_before, variables
+            )
+        if block.context_after:
+            context["context_after"] = templatize(
+                block.context_after, variables
+            )
+        # Pipelines copy CI steps; a bump of one line applies to every copy.
+        if change.path.startswith(".github/") and not block.has_own_context:
+            context["every"] = True
+        added_lines = set(new_block.splitlines()) - set(old_block.splitlines())
+        # Only for boilerplate (prose, or nothing but comments), and only
+        # where the template file has such notes already, or even an
+        # untouched template would skip it.
+        adds_note = any(TODO_NOTE in line for line in added_lines)
+        is_boilerplate = change.path.endswith(".md") or all(
+            _is_comment(line) for line in added_lines if line.strip()
+        )
+        if adds_note and is_boilerplate and TODO_NOTE in old_text:
+            context["requires"] = TODO_NOTE
+        replace = _call("Replace", path, old=old, new=new, **context)
+        bump = _version_bump(old, new)
+        if bump is not None:
+            prefix, old_version, new_version = bump
+            fallback = _call(
+                "BumpVersion",
+                path,
+                prefix=prefix,
+                old=old_version,
+                new=new_version,
+            )
+            operations.append(_first_of_call(path, [replace, fallback]))
+            continue
+        segment = _segment_change(old_block, new_block, old_text)
+        if segment is not None:
+            old_segment, new_segment = (
+                templatize(part, variables) for part in segment
+            )
+            fallback = _call(
+                "RegexReplace",
+                path,
+                pattern=_pattern_literal(old_segment),
+                replacement=new_segment.replace("\\", "\\\\"),
+                applied=_pattern_literal(new_segment),
+            )
+            operations.append(_first_of_call(path, [replace, fallback]))
+            continue
+        operations.append(replace)
     return operations
 
 
+# A changed stretch of one line this long is specific enough to find on
+# its own, whatever the pipeline did to the rest of the line.
+SEGMENT_CHARACTERS = 8
+
+
+def _segment_change(
+    old: str, new: str, old_text: str
+) -> tuple[str, str] | None:
+    """(old, new) stretch of the one line a block changes, if distinctive.
+
+    The stretch runs from the first to the last differing character,
+    widened to whole words. It must occur once in the template file.
+    """
+    old_lines = old.splitlines()
+    new_lines = new.splitlines()
+    if len(old_lines) != len(new_lines):
+        return None
+    changed = [
+        (old_line, new_line)
+        for old_line, new_line in zip(old_lines, new_lines, strict=True)
+        if old_line != new_line
+    ]
+    if len(changed) != 1:
+        return None
+    old_line, new_line = changed[0]
+    start = 0
+    while (
+        start < min(len(old_line), len(new_line))
+        and old_line[start] == new_line[start]
+    ):
+        start += 1
+    end = 0
+    while (
+        end < min(len(old_line), len(new_line)) - start
+        and old_line[-1 - end] == new_line[-1 - end]
+    ):
+        end += 1
+    while start > 0 and _is_word(old_line[start - 1]):
+        start -= 1
+    while end > 0 and _is_word(old_line[len(old_line) - end]):
+        end -= 1
+    old_segment = old_line[start : len(old_line) - end]
+    new_segment = new_line[start : len(new_line) - end]
+    has_content = sum(c.isalnum() for c in old_segment) >= 3
+    if len(old_segment) < SEGMENT_CHARACTERS or not has_content:
+        return None
+    if old_text.count(old_segment) != 1 or new_segment in old_text:
+        return None
+    return old_segment, new_segment
+
+
+def _is_word(character: str) -> bool:
+    return character.isalnum() or character == "_"
+
+
+def _pattern_literal(text: str) -> str:
+    """`text` as a pattern, its {{placeholders}} left to be filled."""
+    escaped = re.sub(r"([.^$*+?{}\[\]\\|()])", r"\\\1", text)
+    return escaped.replace(r"\{\{", "{{").replace(r"\}\}", "}}")
+
+
+def _version_bump(old: str, new: str) -> tuple[str, str, str] | None:
+    """(prefix pattern, old, new) when one line differs only in a version.
+
+    Pipelines edit the rest of such lines (a comment after a plugin id,
+    their own options), which the exact replacement would not survive.
+    """
+    old_lines = old.splitlines()
+    new_lines = new.splitlines()
+    if len(old_lines) != len(new_lines):
+        return None
+    changed = [
+        (old_line, new_line)
+        for old_line, new_line in zip(old_lines, new_lines, strict=True)
+        if old_line != new_line
+    ]
+    if len(changed) != 1:
+        return None
+    old_line, new_line = changed[0]
+    old_parts = re.split(f"({VERSION})", old_line)
+    new_parts = re.split(f"({VERSION})", new_line)
+    if len(old_parts) != len(new_parts):
+        return None
+    differing = [
+        index
+        for index, (a, b) in enumerate(zip(old_parts, new_parts, strict=True))
+        if a != b
+    ]
+    # re.split puts captured versions at odd indexes.
+    if len(differing) != 1 or differing[0] % 2 == 0:
+        return None
+    index = differing[0]
+    old_version, new_version = old_parts[index], new_parts[index]
+    if _version_key(new_version) <= _version_key(old_version):
+        return None
+    before_version = "".join(old_parts[:index]).lstrip()
+    if sum(character.isalpha() for character in before_version) < 3:
+        return None
+    escaped = re.escape(before_version)
+    escaped = re.sub(r"(\\ )+", r"\\s+", escaped)
+    escaped = escaped.replace(r"\{\{", "{{").replace(r"\}\}", "}}")
+    return r"^[ \t]*" + escaped, old_version, new_version
+
+
+def _first_of_call(path: str, sources: list[str]) -> str:
+    """FirstOf source; the nested sources keep their own layout, as
+    re-indenting them would change template text in triple quotes."""
+    body = "\n".join(sources)
+    return (
+        f"    FirstOf(\n        {path!r},\n        operations=(\n"
+        f"{body}\n        ),\n    ),"
+    )
+
+
+def _apply_block(text: str, block: "Block") -> str:
+    """`text` with one generated block applied, as the runner would."""
+    new = "" if block.new is None else block.new
+    positions = find_line_aligned(text, block.old)
+    if len(positions) != 1:
+        return text
+    start = positions[0]
+    return text[:start] + new + text[start + len(block.old) :]
+
+
+def _yaml_call(path: str, operation, variables: dict[str, str]) -> str:
+    """Source for a YamlSet or YamlListItem, with placeholders."""
+
+    def templatized(value):
+        if isinstance(value, str):
+            return templatize(value, variables)
+        if isinstance(value, list):
+            return [templatized(item) for item in value]
+        if isinstance(value, dict):
+            return {name: templatized(item) for name, item in value.items()}
+        return value
+
+    keyword: dict = {"key": templatized(operation.key)}
+    if isinstance(operation, YamlListItem):
+        keyword["item"] = templatized(operation.item)
+        keyword["match"] = templatized(operation.match)
+    else:
+        keyword["value"] = templatized(operation.value)
+        if operation.old is not None:
+            keyword["old"] = templatized(operation.old)
+    if operation.after is not None:
+        keyword["after"] = templatized(operation.after)
+    return _call(type(operation).__name__, path, **keyword)
+
+
+def _is_comment(line: str) -> bool:
+    return line.lstrip().startswith(("//", "#", "<!--", "/*", "*"))
+
+
 def _unintended_change(
-    version: str, path: str, old_block: str, new_block: str
+    version: str, path: str, old_block: str, new_block: str | None
 ) -> str | None:
     for release, release_path, added_text in UNINTENDED_CHANGES:
-        is_added_here = added_text in new_block and added_text not in old_block
+        is_added_here = (
+            new_block is not None
+            and added_text in new_block
+            and added_text not in old_block
+        )
         if release == version and release_path == path and is_added_here:
             return added_text
     return None
@@ -259,12 +497,33 @@ def _reject_placeholder_lookalikes(
             raise ValueError(f"{path} already contains {placeholder(name)}")
 
 
-def diff_hunks(old_text: str, new_text: str) -> list[tuple[str, str]]:
-    """Split a file diff into (old, new) blocks with minimal unique context.
+# Template lines kept around a block to tell apart repeated occurrences.
+DISAMBIGUATION_LINES = 2
+
+
+@dataclass(frozen=True, slots=True)
+class Block:
+    old: str
+    # None removes one paragraph of a large deletion.
+    new: str | None
+    context_before: str = ""
+    context_after: str = ""
+    # Whether old carries context lines of its own, beyond the change.
+    has_own_context: bool = False
+
+
+def diff_hunks(old_text: str, new_text: str) -> list[tuple[str, str | None]]:
+    """The (old, new) pairs of diff_blocks."""
+    return [(block.old, block.new) for block in diff_blocks(old_text, new_text)]
+
+
+def diff_blocks(old_text: str, new_text: str) -> list[Block]:
+    """Split a file diff into old/new blocks with minimal unique context.
 
     Each block keeps only as much surrounding context as it needs to occur
     exactly once in its template file, so local edits a few lines away from
-    a template change do not make it conflict.
+    a template change do not make it conflict. A new block of None removes
+    one paragraph of a large deletion (see _split_deletion).
     """
     old_lines = old_text.splitlines(keepends=True)
     new_lines = new_text.splitlines(keepends=True)
@@ -272,14 +531,143 @@ def diff_hunks(old_text: str, new_text: str) -> list[tuple[str, str]]:
         None, old_lines, new_lines, autojunk=False
     ).get_opcodes()
 
-    hunks = [
-        Hunk(index, index)
-        for index, opcode in enumerate(opcodes)
-        if opcode[0] != "equal"
-    ]
-    hunks = _choose_unique_context(hunks, opcodes, old_text, new_text)
-    hunks = _merge_overlapping(hunks, opcodes)
-    return [_hunk_blocks(hunk, opcodes, old_lines, new_lines) for hunk in hunks]
+    paragraphs_by_opcode: dict[int, list[str]] = {}
+    for index, opcode in enumerate(opcodes):
+        paragraphs = _split_deletion(opcode, old_lines, new_lines, new_text)
+        if paragraphs is not None:
+            paragraphs_by_opcode[index] = paragraphs
+
+    # A hunk that has to grow across a split deletion takes it back.
+    while True:
+        hunks = [
+            Hunk(index, index)
+            for index, opcode in enumerate(opcodes)
+            if opcode[0] != "equal" and index not in paragraphs_by_opcode
+        ]
+        hunks = _choose_unique_context(hunks, opcodes, old_text, new_text)
+        hunks = _merge_overlapping(hunks, opcodes)
+        spanned = {
+            index
+            for hunk in hunks
+            for index in paragraphs_by_opcode
+            if hunk.first_opcode < index < hunk.last_opcode
+        }
+        if not spanned:
+            break
+        for index in spanned:
+            del paragraphs_by_opcode[index]
+
+    blocks: list[tuple[int, list[Block]]] = []
+    for hunk in hunks:
+        old_block, new_block = _hunk_blocks(hunk, opcodes, old_lines, new_lines)
+        _, old_start, _, _, _ = opcodes[hunk.first_opcode]
+        _, _, old_end, _, _ = opcodes[hunk.last_opcode]
+        before_end = old_start - hunk.context_before
+        after_start = old_end + hunk.context_after
+        before_start = max(before_end - DISAMBIGUATION_LINES, 0)
+        context_before = "".join(old_lines[before_start:before_end])
+        context_after = "".join(
+            old_lines[after_start : after_start + DISAMBIGUATION_LINES]
+        )
+        has_own_context = bool(hunk.context_before or hunk.context_after)
+        block = Block(
+            old_block, new_block, context_before, context_after, has_own_context
+        )
+        blocks.append((hunk.first_opcode, [block]))
+    for index, paragraphs in paragraphs_by_opcode.items():
+        removals = [Block(paragraph, None) for paragraph in paragraphs]
+        blocks.append((index, removals))
+    blocks.sort(key=lambda item: item[0])
+    return [block for _, items in blocks for block in items]
+
+
+# Template deletions are removed paragraph by paragraph, as long as each
+# paragraph has some content: a lone "}" says nothing about where it was.
+
+
+def _split_deletion(
+    opcode: tuple, old_lines: list[str], new_lines: list[str], new_text: str
+) -> list[str] | None:
+    """The paragraphs of a pure deletion, if each can go on its own.
+
+    Pipelines keep some of a deleted section verbatim and rewrite the rest;
+    as one block the deletion would not match, while each verbatim
+    paragraph can still go. Every paragraph has to be unique where it is
+    removed and absent from the new template, so that absence reads as
+    applied.
+    """
+    tag, old_start, old_end, new_start, _ = opcode
+    if tag != "delete":
+        return None
+
+    paragraphs: list[list[str]] = []
+    for line in old_lines[old_start:old_end]:
+        starts_paragraph = (
+            paragraphs
+            and line.strip()
+            and not paragraphs[-1][-1].strip()
+            and any(_has_content(item) for item in paragraphs[-1])
+            and not _is_heading(paragraphs[-1])
+        )
+        if not paragraphs or starts_paragraph:
+            paragraphs.append([])
+        paragraphs[-1].append(line)
+    # A paragraph that is not unique where it is removed, or that the new
+    # template still has, goes together with the paragraphs after it.
+    texts: list[str] = []
+    position = old_start
+    pending: list[str] = []
+    for paragraph in paragraphs:
+        pending = pending + paragraph
+        if _is_removable(
+            pending, position, old_lines, new_lines, new_start, new_text
+        ):
+            texts.append("".join(pending))
+            position += len(pending)
+            pending = []
+    if pending:
+        if not texts:
+            return None
+        # The leftover goes with the removal before it.
+        previous = texts.pop().splitlines(keepends=True)
+        position -= len(previous)
+        merged = previous + pending
+        if not _is_removable(
+            merged, position, old_lines, new_lines, new_start, new_text
+        ):
+            return None
+        texts.append("".join(merged))
+    if not texts or not all(
+        any(_has_content(line) for line in text.splitlines()) for text in texts
+    ):
+        return None
+    return texts
+
+
+def _is_removable(
+    paragraph: list[str],
+    position: int,
+    old_lines: list[str],
+    new_lines: list[str],
+    new_start: int,
+    new_text: str,
+) -> bool:
+    text = "".join(paragraph)
+    text_when_removed = "".join(new_lines[:new_start] + old_lines[position:])
+    is_unique = len(find_line_aligned(text_when_removed, text)) == 1
+    return is_unique and not find_line_aligned(new_text, text)
+
+
+def _is_heading(paragraph: list[str]) -> bool:
+    """A lone heading or comment line, which belongs to what follows."""
+    content_lines = [line for line in paragraph if line.strip()]
+    return len(content_lines) == 1 and content_lines[0].lstrip().startswith(
+        ("#", "//")
+    )
+
+
+def _has_content(line: str) -> bool:
+    return sum(character.isalnum() for character in line) >= 3
 
 
 def _choose_unique_context(
@@ -316,10 +704,16 @@ def _choose_unique_context(
             text_when_applied = _text_before_hunk(
                 hunk, opcodes, old_lines, new_lines
             )
+            # Nor may the new block be there before the change, or it
+            # reads as already applied (a blank line added to blank lines).
+            new_block_is_new = not find_line_aligned(
+                text_when_applied, new_block
+            )
             is_unambiguous = (
                 _is_unique(text_when_applied, old_block)
                 and _is_unique(new_text, new_block)
                 and _only_inside_new_block(new_text, old_block, new_block)
+                and new_block_is_new
             )
             if is_unambiguous:
                 found_unique_context = True
@@ -440,7 +834,9 @@ def _git(repo: Path, *args: str) -> str:
     return completed.stdout
 
 
-def _call(operation: str, *positional: str, **keyword: str | None) -> str:
+def _call(
+    operation: str, *positional: str, **keyword: str | bool | list | dict | None
+) -> str:
     """Source for one operation, indented as an item of `operations`."""
     arguments = [f"        {_literal(value)}," for value in positional]
     for name, value in keyword.items():
@@ -449,9 +845,11 @@ def _call(operation: str, *positional: str, **keyword: str | None) -> str:
     return f"    {operation}(\n{body}\n    ),"
 
 
-def _literal(value: str | None) -> str:
+def _literal(value: str | bool | list | dict | None) -> str:
     """Multi-line text as a readable triple-quoted literal when safe."""
-    if value is None or "\n" not in value:
+    if isinstance(value, list | dict):
+        return repr(value)
+    if not isinstance(value, str) or "\n" not in value:
         return repr(value)
     is_safe = (
         '"""' not in value and "\\" not in value and not value.endswith('"')
@@ -462,22 +860,48 @@ def _literal(value: str | None) -> str:
 
 
 def _render_module(
-    old_version: str, new_version: str, operation_sources: list[str]
+    old_version: str,
+    new_version: str,
+    operation_sources: list[str],
+    notes: str | None = None,
 ) -> str:
     operations_body = "\n".join(operation_sources)
     return (
-        f'"""Template update for nf-core/tools {new_version}.\n\n'
-        "Generated by nf-migrate; edit freely.\n"
-        '"""\n'
+        f"{render_docstring(new_version, notes)}\n"
         "# ruff: noqa: E501, F401, W291, W293\n\n"
         "from nf_migrate.operations import (\n"
+        "    BumpVersion,\n"
         "    CreateFile,\n"
         "    DeleteFile,\n"
+        "    FirstOf,\n"
         "    ManualStep,\n"
         "    NfCoreComponent,\n"
+        "    RegexReplace,\n"
+        "    RemoveText,\n"
         "    Replace,\n"
-        ")\n\n"
+        "    ReplaceFile,\n"
+        ")\n"
+        "from nf_migrate.yaml_edit import YamlListItem, YamlSet\n\n"
         f"revision = {new_version!r}\n"
         f"down_revision = {old_version!r}\n\n"
         f"operations = [\n{operations_body}\n]\n"
     )
+
+
+def render_docstring(version: str, notes: str | None) -> str:
+    """A migration's docstring, holding the release notes if known."""
+    notes_paragraph = ""
+    if notes is not None:
+        notes_paragraph = _docstring_text(notes) + "\n"
+    return (
+        f'"""Template update for nf-core/tools {version}.\n\n'
+        f"{notes_paragraph}"
+        "Generated by nf-migrate; edit freely.\n"
+        '"""'
+    )
+
+
+def _docstring_text(text: str) -> str:
+    """Text as it has to be written inside a triple-quoted docstring."""
+    escaped_backslashes = text.replace("\\", "\\\\")
+    return escaped_backslashes.replace('"""', '\\"\\"\\"')

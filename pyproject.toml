@@ -20,7 +20,7 @@ build-backend = "hatchling.build"
 [tool.ruff]
 line-length = 80
 # Generated migrations hold template text that must stay byte-exact.
-extend-exclude = ["src/nf_migrate/nf_core_migrations"]
+extend-exclude = ["src/nf_migrate/nf_core_migrations", "scripts/learn/edits"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
