@@ -97,6 +97,7 @@ def upgrade(
     dry_run: bool = False,
     current: str | None = None,
     allow_conflicts: bool = False,
+    partial_files: bool = False,
 ) -> UpgradeReport:
     """Upgrade `project` to `target`, stopping at the first conflict.
 
@@ -106,8 +107,12 @@ def upgrade(
 
     With `allow_conflicts`, every release keeps the changes that fit and the
     upgrade carries on to `target`; the report lists what is left to do by
-    hand, so `succeeded` stays False.
+    hand, so `succeeded` stays False. A file with a conflict is left as it
+    was before the release, unless `partial_files` keeps the changes that
+    fit in it too.
     """
+    # Keeping partial files only makes sense when conflicts are allowed.
+    allow_conflicts = allow_conflicts or partial_files
     # `current` overrides nf_core_version, e.g. with a detected version.
     if current is None:
         current = read_version(project)
@@ -118,7 +123,7 @@ def upgrade(
     workspace = Workspace(project, pipeline_variables(project))
     for migration in pending_migrations(chain, current, target):
         migration_report = _apply_migration(
-            migration, workspace, allow_conflicts
+            migration, workspace, allow_conflicts, partial_files
         )
         report.migrations.append(migration_report)
         if migration_report.conflicts and not allow_conflicts:
@@ -132,7 +137,10 @@ def upgrade(
 
 
 def _apply_migration(
-    migration: Migration, workspace: Workspace, allow_conflicts: bool = False
+    migration: Migration,
+    workspace: Workspace,
+    allow_conflicts: bool = False,
+    partial_files: bool = False,
 ) -> MigrationReport:
     checkpoint = workspace.snapshot()
 
@@ -146,7 +154,7 @@ def _apply_migration(
     if migration_report.conflicts and not allow_conflicts:
         workspace.restore(checkpoint)
         return migration_report
-    if migration_report.conflicts:
+    if migration_report.conflicts and not partial_files:
         migration_report = _hold_back_conflicting_files(
             migration_report, workspace, checkpoint
         )

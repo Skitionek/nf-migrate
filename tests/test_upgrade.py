@@ -2,7 +2,9 @@ from pathlib import Path
 
 import pytest
 
+from nf_migrate.cli import main
 from nf_migrate.migrations import MigrationError, load_migrations
+from nf_migrate.operations import Outcome
 from nf_migrate.runner import upgrade
 from nf_migrate.version import read_version
 
@@ -288,3 +290,79 @@ def test_template_changes_that_do_not_fit_docs_become_suggestions(
     assert read_version(project_dir) == "3.3.1"
     assert "SUGGESTED README.md" in report.render()
     assert "+new template intro" in report.render_markdown()
+
+
+def test_partial_files_keep_the_changes_that_fit_beside_a_conflict(
+    project_dir: Path, tmp_path: Path
+) -> None:
+    # Given a release that edits igenomes.config twice, the second edit
+    # conflicting
+    (project_dir / "igenomes.config").write_text("params {\ncustom\n}\n")
+    directory = tmp_path / "partial_migrations"
+    directory.mkdir()
+    (directory / "v3_3_1.py").write_text(
+        "from nf_migrate.operations import Replace\n"
+        "revision = '3.3.1'\n"
+        "down_revision = '3.2.1'\n"
+        "operations = [\n"
+        "    Replace('igenomes.config', old='params {\\n',"
+        " new='params.genomes = [\\n'),\n"
+        "    Replace('igenomes.config', old='template\\n}\\n',"
+        " new='template\\n]\\n'),\n"
+        "]\n"
+    )
+
+    # When
+    report = upgrade(
+        project_dir,
+        load_migrations(directory),
+        target="head",
+        allow_conflicts=True,
+        partial_files=True,
+    )
+
+    # Then the edit that fits is kept and only the misfit is reported
+    assert (project_dir / "igenomes.config").read_text() == (
+        "params.genomes = [\ncustom\n}\n"
+    )
+    outcomes = [result.outcome for result in report.migrations[0].results]
+    assert outcomes == [Outcome.APPLIED, Outcome.CONFLICT]
+
+
+def test_cli_partial_files_implies_allowing_conflicts(
+    project_dir: Path, tmp_path: Path
+) -> None:
+    # Given
+    (project_dir / "igenomes.config").write_text("params {\ncustom\n}\n")
+    directory = tmp_path / "partial_migrations"
+    directory.mkdir()
+    (directory / "v3_3_1.py").write_text(
+        "from nf_migrate.operations import Replace\n"
+        "revision = '3.3.1'\n"
+        "down_revision = '3.2.1'\n"
+        "operations = [\n"
+        "    Replace('igenomes.config', old='params {\\n',"
+        " new='params.genomes = [\\n'),\n"
+        "    Replace('igenomes.config', old='template\\n}\\n',"
+        " new='template\\n]\\n'),\n"
+        "]\n"
+    )
+
+    # When
+    exit_code = main(
+        [
+            "--project",
+            str(project_dir),
+            "--migrations",
+            str(directory),
+            "upgrade",
+            "--partial-files",
+        ]
+    )
+
+    # Then
+    assert exit_code == 1
+    assert (project_dir / "igenomes.config").read_text() == (
+        "params.genomes = [\ncustom\n}\n"
+    )
+    assert read_version(project_dir) == "3.3.1"
