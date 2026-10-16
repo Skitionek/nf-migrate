@@ -57,6 +57,7 @@ def merge_template(
     migrations_dir: Path,
     detect: bool = False,
     allow_conflicts: bool = False,
+    partial_files: bool = False,
 ) -> MergeResult:
     """Upgrade `base` to the template version on `head`.
 
@@ -65,8 +66,11 @@ def merge_template(
     The template version is always detected from the files and reported;
     with `detect`, the upgrade also starts from it when it is older than
     the stamp. With `allow_conflicts` the merge commit holds every change
-    that fits, and the report lists the conflicts left for review.
+    that fits, and the report lists the conflicts left for review;
+    `partial_files` keeps the changes that fit in files with conflicts too.
     """
+    # Keeping partial files only makes sense when conflicts are allowed.
+    allow_conflicts = allow_conflicts or partial_files
     base_sha = _git(repo, "rev-parse", "--verify", f"{base}^{{commit}}")
     head_sha = _git(repo, "rev-parse", "--verify", f"{head}^{{commit}}")
     head_nf_core_yml = _git(repo, "show", f"{head_sha}:{NF_CORE_YML}")
@@ -99,6 +103,7 @@ def merge_template(
                 target=target_version,
                 current=start_version,
                 allow_conflicts=allow_conflicts,
+                partial_files=partial_files,
             )
             commit = None
             if report.succeeded or allow_conflicts:

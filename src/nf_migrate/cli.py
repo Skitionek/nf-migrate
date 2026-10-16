@@ -65,6 +65,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="apply every change that fits and report the conflicts",
     )
+    upgrade_command.add_argument(
+        "--partial-files",
+        action="store_true",
+        help="like --allow-conflicts, but also keep the changes that fit in "
+        "a file with a conflict",
+    )
     upgrade_command.set_defaults(handler=_upgrade)
 
     stamp = commands.add_parser(
@@ -108,6 +114,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="commit every change that fits and report the conflicts",
     )
+    merge.add_argument(
+        "--partial-files",
+        action="store_true",
+        help="like --allow-conflicts, but also keep the changes that fit in "
+        "a file with a conflict",
+    )
     merge.set_defaults(handler=_merge_template)
 
     return parser
@@ -121,6 +133,7 @@ def _merge_template(arguments: argparse.Namespace) -> int:
         arguments.migrations,
         detect=arguments.detect,
         allow_conflicts=arguments.allow_conflicts,
+        partial_files=arguments.partial_files,
     )
     if arguments.report_file is not None:
         arguments.report_file.write_text(result.render_markdown())
@@ -177,6 +190,7 @@ def _upgrade(arguments: argparse.Namespace) -> int:
         dry_run=arguments.dry_run,
         current=start_version,
         allow_conflicts=arguments.allow_conflicts,
+        partial_files=arguments.partial_files,
     )
     if arguments.dry_run:
         print(report.diff, end="")
