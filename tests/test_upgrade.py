@@ -366,3 +366,33 @@ def test_cli_partial_files_implies_allowing_conflicts(
         "params.genomes = [\ncustom\n}\n"
     )
     assert read_version(project_dir) == "3.3.1"
+
+
+# Manual steps
+def test_a_later_release_supersedes_an_earlier_manual_step(
+    project_dir: Path, tmp_path: Path
+) -> None:
+    # Given two releases that both ask to regenerate the RO-Crate
+    directory = tmp_path / "manual_migrations"
+    directory.mkdir()
+    for revision, down_revision in (("3.3.1", "3.2.1"), ("3.4.0", "3.3.1")):
+        (directory / f"v{revision.replace('.', '_')}.py").write_text(
+            "from nf_migrate.operations import ManualStep\n"
+            f"revision = {revision!r}\n"
+            f"down_revision = {down_revision!r}\n"
+            "operations = [ManualStep('ro-crate-metadata.json', 'rocrate')]\n"
+        )
+
+    # When
+    report = upgrade(project_dir, load_migrations(directory), target="head")
+
+    # Then only the last release reports it
+    manual_steps = [
+        (migration.revision, result.path)
+        for migration in report.migrations
+        for result in migration.results
+        if result.outcome is Outcome.MANUAL
+    ]
+    assert manual_steps == [("3.4.0", "ro-crate-metadata.json")]
+    assert report.superseded_manual_steps == 1
+    assert "1 manual step from earlier releases" in report.render()

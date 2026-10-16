@@ -8,6 +8,7 @@ unambiguously is a CONFLICT for a human to resolve.
 
 import difflib
 import enum
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +16,9 @@ from typing import Protocol
 
 from nf_migrate import json_text
 from nf_migrate.variables import expand
+
+# How a binary file reads as text; no template text matches it.
+BINARY_FILE_TEXT = "<binary file>\n"
 
 
 class Outcome(enum.Enum):
@@ -114,11 +118,25 @@ class Workspace:
             file_path.write_text(content)
         self._pending.clear()
 
+    def read_bytes(self, path: str) -> bytes | None:
+        if path in self._pending:
+            content = self._pending[path]
+            return None if content is None else content.encode()
+        file_path = self.root / path
+        if not file_path.is_file():
+            return None
+        return file_path.read_bytes()
+
     def _read_from_disk(self, path: str) -> str | None:
         file_path = self.root / path
         if not file_path.is_file():
             return None
-        return file_path.read_text()
+        try:
+            return file_path.read_text()
+        except UnicodeDecodeError:
+            # Text operations then see a file they cannot match, and a
+            # dry-run diff shows the binary file going away.
+            return BINARY_FILE_TEXT
 
 
 def _change_diff(path: str, old: str, new: str) -> str:
@@ -534,6 +552,31 @@ class DeleteFile:
             return OperationResult(path, Outcome.APPLIED)
         message = "file was modified locally"
         return OperationResult(path, Outcome.CONFLICT, message)
+
+
+@dataclass(frozen=True, slots=True)
+class DeleteBinaryFile:
+    """Delete a binary template file the pipeline left untouched.
+
+    Only for files that are the same in every pipeline, such as example
+    images; the SHA-256 of the template's copy tells untouched from replaced.
+    """
+
+    path: str
+    sha256: str
+
+    def apply(self, workspace: Workspace) -> OperationResult:
+        path = workspace.expand(self.path)
+        existing = workspace.read_bytes(path)
+        if existing is None:
+            return OperationResult(path, Outcome.ALREADY_APPLIED)
+        if hashlib.sha256(existing).hexdigest() == self.sha256:
+            workspace.delete(path)
+            return OperationResult(path, Outcome.APPLIED)
+        message = (
+            "the template deleted it, but yours differs: delete it if unused"
+        )
+        return OperationResult(path, Outcome.MANUAL, message)
 
 
 @dataclass(frozen=True, slots=True)

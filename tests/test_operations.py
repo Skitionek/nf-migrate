@@ -1,7 +1,9 @@
+import hashlib
 from pathlib import Path
 
 from nf_migrate.operations import (
     CreateFile,
+    DeleteBinaryFile,
     DeleteFile,
     JsonEdit,
     Outcome,
@@ -477,6 +479,63 @@ def test_delete_file_is_already_applied_when_file_is_gone(
     # Given
     workspace = make_workspace(tmp_path, {})
     operation = DeleteFile("old.yml", expected_content="template\n")
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.ALREADY_APPLIED
+
+
+# DeleteBinaryFile
+PNG = b"\x89PNG\r\n\x1a\n\x00\xff template image"
+
+
+def test_delete_binary_file_removes_the_template_copy(tmp_path: Path) -> None:
+    # Given
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs/mqc.png").write_bytes(PNG)
+    workspace = Workspace(tmp_path)
+    operation = DeleteBinaryFile(
+        "docs/mqc.png", sha256=hashlib.sha256(PNG).hexdigest()
+    )
+
+    # When
+    result = operation.apply(workspace)
+    diff = workspace.diff()
+    workspace.commit()
+
+    # Then
+    assert result.outcome is Outcome.APPLIED
+    assert "docs/mqc.png" in diff
+    assert not (tmp_path / "docs/mqc.png").exists()
+
+
+def test_delete_binary_file_leaves_the_pipelines_own_file(
+    tmp_path: Path,
+) -> None:
+    # Given a pipeline that replaced the template image with its own
+    (tmp_path / "mqc.png").write_bytes(b"\x89PNG own image \xff")
+    workspace = Workspace(tmp_path)
+    operation = DeleteBinaryFile(
+        "mqc.png", sha256=hashlib.sha256(PNG).hexdigest()
+    )
+
+    # When
+    result = operation.apply(workspace)
+    workspace.commit()
+
+    # Then
+    assert result.outcome is Outcome.MANUAL
+    assert (tmp_path / "mqc.png").exists()
+
+
+def test_delete_binary_file_is_already_applied_when_gone(
+    tmp_path: Path,
+) -> None:
+    # Given
+    workspace = Workspace(tmp_path)
+    operation = DeleteBinaryFile("mqc.png", sha256="0" * 64)
 
     # When
     result = operation.apply(workspace)
