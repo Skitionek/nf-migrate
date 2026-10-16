@@ -154,10 +154,17 @@ def _history(arguments: argparse.Namespace) -> int:
 def _upgrade(arguments: argparse.Namespace) -> int:
     chain = load_migrations(arguments.migrations)
     start_version = None
-    if arguments.detect:
+    # Pipelines from before nf-core/tools 3.0 have no stamp to start from.
+    is_unstamped = read_version(arguments.project) is None
+    if arguments.detect or is_unstamped:
         detection = detect_version(arguments.project, chain)
         start_version = detection.upgrade_from
-        if not detection.matches_stamp:
+        if is_unstamped:
+            print(
+                f"no nf_core_version; files look like {detection.version}",
+                file=sys.stderr,
+            )
+        elif not detection.matches_stamp:
             print(
                 f"nf_core_version says {detection.stamped}, files look like "
                 f"{detection.version}; upgrading from {start_version}",
@@ -179,8 +186,9 @@ def _upgrade(arguments: argparse.Namespace) -> int:
 
 def _stamp(arguments: argparse.Namespace) -> int:
     nf_core_yml = arguments.project / NF_CORE_YML
-    stamped = stamp_version(nf_core_yml.read_text(), arguments.revision)
-    nf_core_yml.write_text(stamped)
+    # Pipelines from before nf-core/tools 2.3 have no .nf-core.yml yet.
+    content = nf_core_yml.read_text() if nf_core_yml.exists() else ""
+    nf_core_yml.write_text(stamp_version(content, arguments.revision))
     return 0
 
 

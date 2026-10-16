@@ -5,7 +5,7 @@ from pathlib import Path
 
 from nf_migrate.migrations import Migration, pending_migrations
 from nf_migrate.operations import OperationResult, Outcome, Workspace
-from nf_migrate.variables import template_variables
+from nf_migrate.variables import pipeline_variables
 from nf_migrate.version import NF_CORE_YML, read_version, stamp_version
 
 
@@ -98,11 +98,11 @@ def upgrade(
     # `current` overrides nf_core_version, e.g. with a detected version.
     if current is None:
         current = read_version(project)
+
     report = UpgradeReport()
 
     # A dry run keeps one workspace so later migrations see earlier changes.
-    nf_core_yml = (project / NF_CORE_YML).read_text()
-    workspace = Workspace(project, template_variables(nf_core_yml))
+    workspace = Workspace(project, pipeline_variables(project))
     for migration in pending_migrations(chain, current, target):
         migration_report = _apply_migration(
             migration, workspace, allow_conflicts
@@ -123,6 +123,9 @@ def _apply_migration(
 ) -> MigrationReport:
     checkpoint = workspace.snapshot()
 
+    # Migrations are generated against .nf-core.yml already stamped with
+    # their revision, so stamp it the same way before applying them.
+    stamp_workspace(workspace, migration.revision)
     results = [operation.apply(workspace) for operation in migration.operations]
     migration_report = MigrationReport(migration.revision, results)
 
@@ -134,9 +137,14 @@ def _apply_migration(
             migration_report, workspace, checkpoint
         )
 
-    nf_core_yml = workspace.read(NF_CORE_YML) or ""
-    workspace.write(NF_CORE_YML, stamp_version(nf_core_yml, migration.revision))
+    # Again, in case conflicts held .nf-core.yml back to before this release.
+    stamp_workspace(workspace, migration.revision)
     return migration_report
+
+
+def stamp_workspace(workspace: Workspace, revision: str) -> None:
+    nf_core_yml = workspace.read(NF_CORE_YML) or ""
+    workspace.write(NF_CORE_YML, stamp_version(nf_core_yml, revision))
 
 
 def _hold_back_conflicting_files(
