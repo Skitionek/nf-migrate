@@ -1,6 +1,9 @@
 from pathlib import Path
 
+import pytest
+
 from nf_migrate.variables import (
+    TemplateVariableError,
     expand,
     pipeline_variables,
     template_variables,
@@ -153,3 +156,51 @@ def test_manifest_values_may_use_triple_quotes(tmp_path: Path) -> None:
 
     # Then
     assert variables["pipeline_description"] == "A pipeline to investigate HGT"
+
+
+def test_an_empty_manifest_author_is_a_value_not_a_missing_key(
+    tmp_path: Path,
+) -> None:
+    # Given a pipeline whose author was never filled in, as the template
+    # renders it
+    (tmp_path / "nextflow.config").write_text(
+        "manifest {\n"
+        "    name            = 'nf-core/omicsgenetraitassociation'\n"
+        '    author          = """"""\n'
+        "}\n"
+    )
+
+    # When
+    variables = pipeline_variables(tmp_path)
+    text = expand('author = """{{pipeline_author}}"""', variables)
+
+    # Then
+    assert variables["pipeline_author"] == ""
+    assert text == 'author = """"""'
+
+
+def test_templatize_leaves_an_empty_value_alone() -> None:
+    # Given
+    variables = {"pipeline_author": "", "pipeline_name": "demo"}
+
+    # When
+    text = templatize("demo by nobody", variables)
+
+    # Then
+    assert text == "{{pipeline_name}} by nobody"
+
+
+def test_a_missing_author_says_where_to_set_it() -> None:
+    # Given no variables at all
+    variables: dict[str, str] = {}
+
+    # When
+    with pytest.raises(TemplateVariableError) as error:
+        expand("{{pipeline_author}}", variables)
+
+    # Then
+    message = str(error.value)
+    assert "{{pipeline_author}}" in message
+    assert "template:" in message
+    assert "author" in message
+    assert "manifest" in message
