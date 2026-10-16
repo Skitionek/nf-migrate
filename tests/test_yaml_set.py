@@ -315,3 +315,41 @@ def test_yaml_changes_turn_a_new_step_into_a_list_item(tmp_path: Path) -> None:
     assert [type(operation).__name__ for operation in operations] == [
         "YamlListItem"
     ]
+
+
+def test_yaml_set_is_skipped_when_the_pipeline_has_no_such_file(
+    tmp_path: Path,
+) -> None:
+    # Given
+    workspace = Workspace(tmp_path)
+    operation = YamlSet(
+        ".github/workflows/fix_linting.yml",
+        key=["jobs", "lint", "runs-on"],
+        value="ubuntu-latest",
+        old="ubuntu-20.04",
+    )
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.SKIPPED
+
+
+def test_yaml_list_item_add_is_skipped_when_the_pipeline_has_no_such_file(
+    tmp_path: Path,
+) -> None:
+    # Given
+    workspace = Workspace(tmp_path)
+    operation = YamlListItem(
+        ".github/workflows/fix_linting.yml",
+        key=["jobs", "lint", "steps"],
+        item="- name: Lint\n  run: nf-core lint\n",
+        match={"name": "Lint"},
+    )
+
+    # When
+    result = operation.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.SKIPPED

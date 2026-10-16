@@ -41,6 +41,12 @@ small idempotent operations, and applies them without an LLM:
 - `ManualStep(path, instruction)` — files nf-core generates (RO-Crate,
   container configs) or binary files; reported, never blocking.
 
+An edit to a file the pipeline no longer has (`Replace`, `RegexReplace`,
+`BumpVersion`, `YamlSet`, `YamlListItem`, `FirstOf`) is skipped, not a
+conflict: the pipeline deleted or moved it. A file an earlier operation
+creates counts as present. The report names each skipped file, so a
+reviewer can check where its content went; skips never block an upgrade.
+
 Each migration is all-or-nothing: a conflict leaves every file and the
 `nf_core_version` in `.nf-core.yml` unchanged, and the report names the
 conflicting hunks. With `--allow-conflicts` (on `upgrade` and

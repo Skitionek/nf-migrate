@@ -50,13 +50,17 @@ class UpgradeReport:
             )
             lines.append(f"{migration.revision}: {summary}")
             for result in migration.results:
-                if result.outcome in (Outcome.CONFLICT, Outcome.MANUAL):
+                if result.outcome in (
+                    Outcome.CONFLICT,
+                    Outcome.MANUAL,
+                    Outcome.SKIPPED,
+                ):
                     label = result.outcome.name
                     lines.append(f"  {label} {result.path}: {result.message}")
         return "\n".join(lines)
 
     def render_markdown(self) -> str:
-        """The report as a PR comment: conflicts, then manual steps."""
+        """The report as a PR comment: conflicts, manual steps, skips."""
         lines: list[str] = []
         for migration in self.migrations:
             counts = {outcome: 0 for outcome in Outcome}
@@ -73,6 +77,10 @@ class UpgradeReport:
                         lines.append(_suggestion_block(result.suggestion))
                 elif result.outcome is Outcome.MANUAL:
                     lines.append(f"- [ ] `{result.path}`: {result.message}")
+                elif result.outcome is Outcome.SKIPPED:
+                    lines.append(
+                        f"- `{result.path}`: skipped, {result.message}"
+                    )
             lines.append("")
         return "\n".join(lines)
 
