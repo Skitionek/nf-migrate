@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from nf_migrate.cli import main
 from nf_migrate.migrations import MigrationError, load_migrations
 from nf_migrate.runner import upgrade
 from nf_migrate.version import read_version
@@ -252,3 +253,37 @@ def test_allow_conflicts_leaves_a_file_with_a_conflict_untouched(
         "igenomes.config",
     ]
     assert "held back" in conflicts[0].message
+
+
+def test_upgrade_writes_the_markdown_report_to_a_file(
+    project_dir: Path, tmp_path: Path
+) -> None:
+    # Given a release whose change conflicts
+    directory = tmp_path / "conflicting_migrations"
+    directory.mkdir()
+    (directory / "v3_3_1.py").write_text(
+        "from nf_migrate.operations import Replace\n"
+        "revision = '3.3.1'\n"
+        "down_revision = '3.2.1'\n"
+        "operations = [Replace('other.config', old='missing\\n', "
+        "new='added\\n')]\n"
+    )
+    report_file = tmp_path / "report.md"
+
+    # When
+    exit_code = main(
+        [
+            "--project",
+            str(project_dir),
+            "--migrations",
+            str(directory),
+            "upgrade",
+            "--allow-conflicts",
+            "--report-file",
+            str(report_file),
+        ]
+    )
+
+    # Then
+    assert exit_code == 1
+    assert "+added" in report_file.read_text()
