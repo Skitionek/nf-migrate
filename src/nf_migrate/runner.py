@@ -32,6 +32,8 @@ class MigrationReport:
 class UpgradeReport:
     migrations: list[MigrationReport] = field(default_factory=list)
     diff: str = ""
+    # Manual steps left out because a later release covers the same file.
+    superseded_manual_steps: int = 0
 
     @property
     def failed_revision(self) -> str | None:
@@ -59,7 +61,17 @@ class UpgradeReport:
                 if result.outcome in reported:
                     label = result.outcome.name
                     lines.append(f"  {label} {result.path}: {result.message}")
+        if self.superseded_manual_steps:
+            lines.append(self._superseded_note())
         return "\n".join(lines)
+
+    def _superseded_note(self) -> str:
+        count = self.superseded_manual_steps
+        steps = "manual step" if count == 1 else "manual steps"
+        return (
+            f"{count} {steps} from earlier releases left out: a later "
+            "release covers the same file"
+        )
 
     def render_markdown(self) -> str:
         """The report as a PR comment: conflicts, then manual steps."""
@@ -87,6 +99,8 @@ class UpgradeReport:
                     if result.suggestion:
                         lines.append(_suggestion_block(result.suggestion))
             lines.append("")
+        if self.superseded_manual_steps:
+            lines.append(f"_{self._superseded_note()}._\n")
         return "\n".join(lines)
 
 
@@ -117,26 +131,65 @@ def upgrade(
     if current is None:
         current = read_version(project)
 
-    report = UpgradeReport()
-
     # A dry run keeps one workspace so later migrations see earlier changes.
     workspace = Workspace(project, pipeline_variables(project))
-    for migration in pending_migrations(chain, current, target):
-        migration_report = _apply_migration(
-            migration, workspace, allow_conflicts, partial_files
-        )
-        report.migrations.append(migration_report)
-        if migration_report.conflicts and not allow_conflicts:
-            break
-        if not dry_run:
-            workspace.commit()
-
+    report = run_migrations(
+        workspace,
+        pending_migrations(chain, current, target),
+        allow_conflicts=allow_conflicts,
+        partial_files=partial_files,
+        commit=not dry_run,
+    )
     if dry_run:
         report.diff = workspace.diff()
     return report
 
 
-def _apply_migration(
+def run_migrations(
+    workspace: Workspace,
+    migrations: list[Migration],
+    allow_conflicts: bool = False,
+    partial_files: bool = False,
+    commit: bool = False,
+) -> UpgradeReport:
+    """Apply `migrations` in order to `workspace`; see `upgrade`."""
+    report = UpgradeReport()
+    for migration in migrations:
+        migration_report = apply_migration(
+            migration, workspace, allow_conflicts, partial_files
+        )
+        report.migrations.append(migration_report)
+        if migration_report.conflicts and not allow_conflicts:
+            break
+        if commit:
+            workspace.commit()
+    _drop_superseded_manual_steps(report)
+    return report
+
+
+def _drop_superseded_manual_steps(report: UpgradeReport) -> None:
+    """Keep each file's manual step only from the last release touching it.
+
+    Over many releases the same file comes up again and again (the RO-Crate,
+    a module at successive versions, an image added and later deleted);
+    only the last release's instruction still matters.
+    """
+    later_paths: set[str] = set()
+    for migration in reversed(report.migrations):
+        kept = []
+        for result in migration.results:
+            is_superseded = (
+                result.outcome is Outcome.MANUAL and result.path in later_paths
+            )
+            if is_superseded:
+                report.superseded_manual_steps += 1
+            else:
+                kept.append(result)
+        later_paths.update(result.path for result in migration.results)
+        migration.results = kept
+
+
+def apply_migration(
     migration: Migration,
     workspace: Workspace,
     allow_conflicts: bool = False,

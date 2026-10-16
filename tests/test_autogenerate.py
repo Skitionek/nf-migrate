@@ -1,3 +1,4 @@
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -533,6 +534,59 @@ def test_json_changes_fall_back_to_text_where_the_pipeline_renamed_keys(
     assert (pipeline / "schema.json").read_text() == (
         schema.format("new").replace("fastq_1", "forward_reads")
     )
+
+
+# Binary files
+def commit_binary_files(repo: Path, files: dict[str, bytes | None]) -> str:
+    for relative_path, content in files.items():
+        file_path = repo / relative_path
+        if content is None:
+            file_path.unlink()
+            continue
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_bytes(content)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "template")
+    return git(repo, "rev-parse", "HEAD")
+
+
+def test_binary_files_are_deleted_by_hash_and_logos_regenerated(
+    tmp_path: Path,
+) -> None:
+    # Given a release that deletes an example image and redraws the logo
+    template_repo = tmp_path / "template"
+    template_repo.mkdir()
+    git(template_repo, "init", "-q")
+    git(template_repo, "config", "user.email", "t@example.com")
+    git(template_repo, "config", "user.name", "t")
+    nf_core_yml = "nf_core_version: {}\ntemplate:\n  name: sentinelpipe\n"
+    image = b"\x89PNG\r\n\x1a\n\x00\xff example"
+    old_ref = commit_binary_files(
+        template_repo,
+        {
+            ".nf-core.yml": nf_core_yml.format("3.2.1").encode(),
+            "docs/images/mqc.png": image,
+            "docs/images/nf-core-sentinelpipe_logo.png": b"\x89PNG\x00 old",
+        },
+    )
+    new_ref = commit_binary_files(
+        template_repo,
+        {
+            ".nf-core.yml": nf_core_yml.format("3.3.1").encode(),
+            "docs/images/mqc.png": None,
+            "docs/images/nf-core-sentinelpipe_logo.png": b"\x89PNG\x00 new",
+        },
+    )
+
+    # When
+    generated = generate_migration(template_repo, old_ref, new_ref)
+
+    # Then
+    image_sha = hashlib.sha256(image).hexdigest()
+    assert "DeleteBinaryFile(" in generated.source
+    assert image_sha in generated.source
+    assert "nf-core-{{pipeline_name}}_logo.png" in generated.source
+    assert "nf-core pipelines create-logo" in generated.source
 
 
 # Changes a release made by mistake

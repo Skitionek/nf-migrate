@@ -7,6 +7,7 @@ template section (pipeline name, author, ...) become {{placeholders}}, so
 the migration applies to any pipeline.
 """
 
+import hashlib
 import json
 import subprocess
 from dataclasses import dataclass
@@ -207,8 +208,7 @@ def _operations_for_change(
 ) -> list[str]:
     path = templatize(change.path, variables)
     if change.status == "binary":
-        instruction = "binary file changed in the template; copy it by hand"
-        return [_call("ManualStep", path, instruction)]
+        return [_binary_operation(repo, old_ref, new_ref, change.path, path)]
 
     old_text = _show(repo, old_ref, change.path)
     new_text = _show(repo, new_ref, change.path)
@@ -261,6 +261,44 @@ def _unintended_change(
         if release == version and release_path == path and is_added_here:
             return added_text
     return None
+
+
+def _binary_operation(
+    repo: Path, old_ref: str, new_ref: str, template_path: str, path: str
+) -> str:
+    """Delete a binary the template dropped, or say how to update it.
+
+    Binaries are not embedded in migrations. A deleted file that is the same
+    in every pipeline is removed by its hash; a pipeline's logo, drawn from
+    its name, is regenerated with nf-core's own command.
+    """
+    old_content = _show_bytes(repo, old_ref, template_path)
+    new_content = _show_bytes(repo, new_ref, template_path)
+    is_pipeline_specific = path != template_path
+
+    if new_content is None and old_content is not None:
+        if not is_pipeline_specific:
+            sha256 = hashlib.sha256(old_content).hexdigest()
+            return _call("DeleteBinaryFile", path, sha256=sha256)
+        instruction = "the template deleted it; delete it if unused"
+    elif "_logo" in template_path:
+        instruction = (
+            "logo changed in the template; regenerate it with "
+            "`nf-core pipelines create-logo`"
+        )
+    else:
+        instruction = "binary file changed in the template; copy it by hand"
+    return _call("ManualStep", path, instruction)
+
+
+def _show_bytes(repo: Path, ref: str, path: str) -> bytes | None:
+    completed = subprocess.run(
+        ["git", "-C", str(repo), "show", f"{ref}:{path}"],
+        capture_output=True,
+    )
+    if completed.returncode != 0:
+        return None
+    return completed.stdout
 
 
 @dataclass(frozen=True, slots=True)
@@ -617,14 +655,10 @@ def _changed_files(repo: Path, old_ref: str, new_ref: str) -> list[FileChange]:
 
 
 def _show(repo: Path, ref: str, path: str) -> str | None:
-    completed = subprocess.run(
-        ["git", "-C", str(repo), "show", f"{ref}:{path}"],
-        capture_output=True,
-        text=True,
-    )
-    if completed.returncode != 0:
+    content = _show_bytes(repo, ref, path)
+    if content is None:
         return None
-    return completed.stdout
+    return content.decode()
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -671,6 +705,7 @@ def _render_module(
         "# ruff: noqa: E501, F401, W291, W293\n\n"
         "from nf_migrate.operations import (\n"
         "    CreateFile,\n"
+        "    DeleteBinaryFile,\n"
         "    DeleteFile,\n"
         "    JsonEdit,\n"
         "    ManualStep,\n"
