@@ -252,3 +252,39 @@ def test_allow_conflicts_leaves_a_file_with_a_conflict_untouched(
         "igenomes.config",
     ]
     assert "held back" in conflicts[0].message
+
+
+# Pipeline-owned documentation
+def test_template_changes_that_do_not_fit_docs_become_suggestions(
+    project_dir: Path, tmp_path: Path
+) -> None:
+    # Given a release that edits base.config and a README the pipeline
+    # rewrote, and another README edit that still fits
+    (project_dir / "README.md").write_text("# my pipeline\n\nintro\n")
+    directory = tmp_path / "docs_migrations"
+    directory.mkdir()
+    (directory / "v3_3_1.py").write_text(
+        "from nf_migrate.operations import Replace\n"
+        "revision = '3.3.1'\n"
+        "down_revision = '3.2.1'\n"
+        "operations = [\n"
+        "    Replace('README.md', old='template intro\\n',"
+        " new='new template intro\\n'),\n"
+        "    Replace('README.md', old='intro\\n', new='intro\\n\\nbadge\\n'),\n"
+        "    Replace('base.config', old='retry = 104\\n',"
+        " new='retry = 104 + 175\\n'),\n"
+        "]\n"
+    )
+
+    # When
+    report = upgrade(project_dir, load_migrations(directory), target="head")
+
+    # Then the release goes through and the misfit is only suggested
+    assert report.succeeded, report.render()
+    assert (project_dir / "base.config").read_text() == "retry = 104 + 175\n"
+    assert (project_dir / "README.md").read_text() == (
+        "# my pipeline\n\nintro\n\nbadge\n"
+    )
+    assert read_version(project_dir) == "3.3.1"
+    assert "SUGGESTED README.md" in report.render()
+    assert "+new template intro" in report.render_markdown()
