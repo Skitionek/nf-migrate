@@ -113,6 +113,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="commit every change that fits and report the conflicts",
     )
+    merge.add_argument(
+        "--lint-fix",
+        action="store_true",
+        help="follow the merge with `nf-core pipelines lint --fix` commits",
+    )
     merge.set_defaults(handler=_merge_template)
 
     return parser
@@ -126,6 +131,7 @@ def _merge_template(arguments: argparse.Namespace) -> int:
         arguments.migrations,
         detect=arguments.detect,
         allow_conflicts=arguments.allow_conflicts,
+        lint_fix=arguments.lint_fix,
     )
     if arguments.report_file is not None:
         arguments.report_file.write_text(result.render_markdown())
