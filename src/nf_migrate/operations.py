@@ -277,7 +277,11 @@ class NfCoreComponent:
     path: str = "modules.json"
 
     def apply(self, workspace: Workspace) -> OperationResult:
-        installed_sha = self._installed_sha(workspace)
+        try:
+            installed_sha = self._installed_sha(workspace)
+        except json.JSONDecodeError:
+            message = f"{self.path} is not valid JSON"
+            return self._result(Outcome.CONFLICT, message)
         command = f"nf-core {self.kind}"
 
         if self.git_sha is None:
