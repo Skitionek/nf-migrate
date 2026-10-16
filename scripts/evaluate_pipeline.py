@@ -9,6 +9,7 @@ usage: evaluate_pipeline.py REPO WORK_DIR
 """
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -23,8 +24,12 @@ from nf_migrate.migrations import (
     pending_migrations,
 )
 from nf_migrate.operations import Outcome, Workspace
-from nf_migrate.variables import template_variables
-from nf_migrate.version import parse_version
+from nf_migrate.runner import stamp_workspace
+from nf_migrate.variables import pipeline_variables
+from nf_migrate.version import parse_version, read_version
+
+# Before 2.14 TEMPLATE commits carry no nf_core_version; their subject does.
+TEMPLATE_SUBJECT_VERSION = re.compile(r"nf-core/tools,? version (\S+)")
 
 
 def git(repo: Path, *args: str) -> str:
@@ -73,9 +78,7 @@ def template_merges(repo: Path, revisions: set[str]) -> list[tuple[str, str]]:
     merges: dict[str, str] = {}
     search_from = 0
     for template_commit in template_commits:
-        version = parse_version(
-            show(repo, template_commit, ".nf-core.yml") or ""
-        )
+        version = template_version(repo, template_commit)
         if version not in revisions:
             continue
         # Template merges land on dev in order, so resume the scan.
@@ -96,11 +99,24 @@ def template_merges(repo: Path, revisions: set[str]) -> list[tuple[str, str]]:
                 == 0
             )
             if is_merged:
+                # A pipeline created from the template starts at the
+                # TEMPLATE commit itself; that is no merge to replay.
+                if commit == template_commit:
+                    break
                 # A later TEMPLATE commit merged in the same PR wins.
                 merges[commit] = version
                 search_from = index
                 break
     return list(merges.items())
+
+
+def template_version(repo: Path, template_commit: str) -> str | None:
+    version = parse_version(show(repo, template_commit, ".nf-core.yml") or "")
+    if version is not None:
+        return version
+    subject = git(repo, "log", "-1", "--format=%s", template_commit)
+    match = TEMPLATE_SUBJECT_VERSION.search(subject)
+    return match.group(1) if match else None
 
 
 def evaluate_step(
@@ -113,8 +129,9 @@ def evaluate_step(
     export(repo, before_ref, before)
     export(repo, after_ref, after)
 
-    nf_core_yml = (before / ".nf-core.yml").read_text()
-    current = parse_version(nf_core_yml)
+    detected = detect_version(before, chain).version
+    # Pipelines from before nf-core/tools 3.0 have no stamp to start from.
+    current = read_version(before) or detected
     step = {
         "before": before_ref,
         "after": after_ref,
@@ -127,11 +144,13 @@ def evaluate_step(
         step["skipped"] = str(error)
         return step
 
-    step["detected"] = detect_version(before, chain).version
-    workspace = Workspace(before, template_variables(nf_core_yml))
+    step["detected"] = detected
+    workspace = Workspace(before, pipeline_variables(before))
     outcomes: Counter = Counter()
     conflicts: list[str] = []
     for migration in migrations:
+        # As the runner does: migrations expect .nf-core.yml stamped.
+        stamp_workspace(workspace, migration.revision)
         for operation in migration.operations:
             result = operation.apply(workspace)
             outcomes[result.outcome.name] += 1

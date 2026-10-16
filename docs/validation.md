@@ -161,12 +161,54 @@ at the cost of more conflicts. That trade-off is why detection is opt-in
 (`--detect`, or the action's `detect-version`), while the report warns
 about a mismatch either way.
 
+## Pipelines older than nf-core/tools 3.0
+
+The chain was extended from 3.3.1 down to 1.9 because slamseq, imcyto and
+mnaseseq never merged a template newer than 1.9. Their migrations were
+generated from renders of every release from 1.9 to 3.3.1, and checked
+against those renders:
+
+- Upgrading the 1.9 render, without a `.nf-core.yml`, through the whole
+  chain to 4.1.0 applies every release without a conflict; at 3.3.1 every
+  text file, `.nf-core.yml` included, is identical to the 3.3.1 render.
+  Binary files, nf-core components and the RO-Crate are left as manual
+  steps.
+- Each migration finds all of its changes already applied on its own
+  release's render, so running a release twice changes nothing.
+- With `.nf-core.yml` removed, `detect` names the right release for 45 of
+  the 48 renders. The other three, 2.4, 2.7 and 2.12, render exactly like
+  their .1 patch releases, which changed only the version stamp.
+
+None of the three pipelines has a `.nf-core.yml`. On their `master`
+branches (2026-10-15), `detect` finds 1.9 for each, and a dry run to 4.1.0
+with `--allow-conflicts` gives:
+
+| Pipeline | Commit | Applied | Already applied | Conflict | Manual step |
+|---|---|---|---|---|---|
+| slamseq | `081d363` | 1314 | 22 | 744 | 101 |
+| imcyto | `33eeade` | 1284 | 27 | 769 | 101 |
+| mnaseseq | `eaaeaeb` | 1350 | 18 | 712 | 101 |
+
+As in the 3.x merges above, the conflicts are in files the pipeline owns:
+for slamseq, `nextflow.config`, README.md, `docs/usage.md` and `main.nf`
+account for 537 of the 744. Most of them follow from an earlier conflict:
+once a file is held back, later releases' changes to it no longer find
+their text.
+
+The migrations follow what each release meant to change, not every slip
+it shipped. 2.3.1 put an nf-core/tools release note ("Clarified conda
+usage ...") into the pipeline CHANGELOG and 2.3.2 removed it, so
+`nf-migrate revision` leaves the note out of `v2_3_1.py` (listed in
+`UNINTENDED_CHANGES` in `autogenerate.py`), while `v2_3_2.py` still removes
+it from pipelines that merged it.
+
 ## Skipped merges
 
-Six merges fall outside the chain and were not evaluated:
+Six merges fall outside the chain as it stood for this evaluation and were
+not evaluated. The chain now starts at 1.9, but they have not been re-run:
 
 - atacseq, chipseq, mag, scrnaseq: started from 3.2.1, before the chain's
-  first version, 3.3.1.
+  first version then, 3.3.1.
 - fetchngs: started from 3.2.0.
 - fetchngs: `dev` was already stamped 3.5.2 when a 3.5.1 `TEMPLATE` commit
   was merged, and nf-migrate only upgrades.
