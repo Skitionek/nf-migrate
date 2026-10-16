@@ -22,6 +22,9 @@ class Outcome(enum.Enum):
     CONFLICT = "conflict"
     # Work nf-migrate leaves to nf-core's own tooling. Reported, not blocking.
     MANUAL = "manual step"
+    # A template change that did not fit a file the pipeline owns, such as
+    # its README. Reported with the change, not blocking.
+    SUGGESTED = "suggested"
 
 
 @dataclass(frozen=True, slots=True)

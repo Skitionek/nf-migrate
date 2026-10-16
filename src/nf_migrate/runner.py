@@ -1,12 +1,17 @@
 """Apply pending migrations to a pipeline, one migration at a time."""
 
 from dataclasses import dataclass, field, replace
+from fnmatch import fnmatch
 from pathlib import Path
 
 from nf_migrate.migrations import Migration, pending_migrations
 from nf_migrate.operations import OperationResult, Outcome, Workspace
 from nf_migrate.variables import pipeline_variables
 from nf_migrate.version import NF_CORE_YML, read_version, stamp_version
+
+# Files the template only seeds: pipelines rewrite them, so a template
+# change that no longer fits is a suggestion, not a conflict.
+PIPELINE_OWNED_DOCS = ("README.md", "CHANGELOG.md", "CITATIONS.md", "docs/*.md")
 
 
 @dataclass(slots=True)
@@ -50,7 +55,8 @@ class UpgradeReport:
             )
             lines.append(f"{migration.revision}: {summary}")
             for result in migration.results:
-                if result.outcome in (Outcome.CONFLICT, Outcome.MANUAL):
+                reported = (Outcome.CONFLICT, Outcome.MANUAL, Outcome.SUGGESTED)
+                if result.outcome in reported:
                     label = result.outcome.name
                     lines.append(f"  {label} {result.path}: {result.message}")
         return "\n".join(lines)
@@ -73,6 +79,13 @@ class UpgradeReport:
                         lines.append(_suggestion_block(result.suggestion))
                 elif result.outcome is Outcome.MANUAL:
                     lines.append(f"- [ ] `{result.path}`: {result.message}")
+                elif result.outcome is Outcome.SUGGESTED:
+                    lines.append(
+                        f"- :bulb: `{result.path}`: template change to "
+                        f"consider ({result.message})"
+                    )
+                    if result.suggestion:
+                        lines.append(_suggestion_block(result.suggestion))
             lines.append("")
         return "\n".join(lines)
 
@@ -127,6 +140,7 @@ def _apply_migration(
     # their revision, so stamp it the same way before applying them.
     stamp_workspace(workspace, migration.revision)
     results = [operation.apply(workspace) for operation in migration.operations]
+    results = [_suggest_for_owned_docs(result) for result in results]
     migration_report = MigrationReport(migration.revision, results)
 
     if migration_report.conflicts and not allow_conflicts:
@@ -145,6 +159,15 @@ def _apply_migration(
 def stamp_workspace(workspace: Workspace, revision: str) -> None:
     nf_core_yml = workspace.read(NF_CORE_YML) or ""
     workspace.write(NF_CORE_YML, stamp_version(nf_core_yml, revision))
+
+
+def _suggest_for_owned_docs(result: OperationResult) -> OperationResult:
+    is_owned_doc = any(
+        fnmatch(result.path, pattern) for pattern in PIPELINE_OWNED_DOCS
+    )
+    if result.outcome is Outcome.CONFLICT and is_owned_doc:
+        return replace(result, outcome=Outcome.SUGGESTED)
+    return result
 
 
 def _hold_back_conflicting_files(
