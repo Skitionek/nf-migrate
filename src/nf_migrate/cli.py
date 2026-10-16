@@ -65,6 +65,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="apply every change that fits and report the conflicts",
     )
+    upgrade_command.add_argument(
+        "--report-file",
+        type=Path,
+        help="write the Markdown report, with each conflict's template "
+        "change as a diff, here",
+    )
     upgrade_command.set_defaults(handler=_upgrade)
 
     stamp = commands.add_parser(
@@ -183,6 +189,8 @@ def _upgrade(arguments: argparse.Namespace) -> int:
         current=start_version,
         allow_conflicts=arguments.allow_conflicts,
     )
+    if arguments.report_file is not None:
+        arguments.report_file.write_text(report.render_markdown())
     if arguments.dry_run:
         print(report.diff, end="")
     print(report.render() or "already up to date", file=sys.stderr)

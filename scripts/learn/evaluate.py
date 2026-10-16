@@ -400,7 +400,11 @@ def survives(operation, workspace, template_target: str | None) -> bool:
 
 
 def evaluate_merge(
-    merge: dict, chain: list, history: History, reader: GitReader
+    merge: dict,
+    chain: list,
+    history: History,
+    reader: GitReader,
+    resolved: Path | None = None,
 ) -> dict:
     result = {key: merge[key] for key in ("pipeline", "merge", "from", "to")}
     result["pr"] = merge.get("pr")
@@ -417,6 +421,14 @@ def evaluate_merge(
     variables = variables_at(reader, before)
     workspace = GitWorkspace(reader, before, variables)
     target = merge["to"]
+
+    def our_text_of(path: str) -> str | None:
+        """Our result: the migrated workspace, or a tree resolved after it
+        (by hand or by an agent) when scoring that instead."""
+        if resolved is None:
+            return workspace.read(path)
+        file_path = resolved / path
+        return file_path.read_text() if file_path.is_file() else None
 
     operations = []
     # (entry, old, new) for Replace operations, scored on the final texts.
@@ -507,7 +519,7 @@ def evaluate_merge(
     for entry, operation in yaml_operations:
         path = entry["path"]
         human = yaml_status(operation, workspace, reader.read(after, path))
-        ours = yaml_status(operation, workspace, workspace.read(path))
+        ours = yaml_status(operation, workspace, our_text_of(path))
         entry["hc"] = human
         entry["oc"] = ours
         entry["agree"] = human == ours
@@ -517,7 +529,7 @@ def evaluate_merge(
         entry["hc"] = concept_status(
             old, new, before_text, reader.read(after, path)
         )
-        our_text = workspace.read(path)
+        our_text = our_text_of(path)
         entry["oc"] = concept_status(old, new, before_text, our_text)
         entry["agree"] = lines_agree(
             old, new, reader.read(after, path), our_text
@@ -543,21 +555,29 @@ def evaluate_merge(
             template_new,
             reader.read(before, path),
             after_text,
-            workspace.read(path),
+            our_text_of(path),
         )
     result.update(operations=operations, files=files)
     return result
 
 
 def evaluate_pipeline(task: tuple) -> list[dict]:
-    pipeline, merges, history_repo, migrations_dir = task
+    pipeline, merges, history_repo, migrations_dir, resolved = task
     chain = load_migrations(Path(migrations_dir))
     history = History(Path(history_repo))
     reader = GitReader(PIPELINES_DIR / pipeline)
     results = []
     for merge in merges:
         try:
-            results.append(evaluate_merge(merge, chain, history, reader))
+            results.append(
+                evaluate_merge(
+                    merge,
+                    chain,
+                    history,
+                    reader,
+                    Path(resolved) if resolved else None,
+                )
+            )
         except Exception:  # noqa: BLE001 - keep going, report the sample
             results.append(
                 {
@@ -583,6 +603,13 @@ def main() -> None:
     parser.add_argument(
         "--covers", help="only merges whose range includes this release"
     )
+    parser.add_argument("--merge", help="only this merge commit")
+    parser.add_argument(
+        "--resolved",
+        type=Path,
+        help="with --merge: score this pipeline directory instead of the "
+        "migrations' result, e.g. after resolving its conflicts",
+    )
     arguments = parser.parse_args()
     revisions = [
         migration.revision
@@ -604,10 +631,18 @@ def main() -> None:
                 continue
         if arguments.pipelines and merge["pipeline"] not in arguments.pipelines:
             continue
+        if arguments.merge and not merge["merge"].startswith(arguments.merge):
+            continue
         by_pipeline.setdefault(merge["pipeline"], []).append(merge)
 
     tasks = [
-        (pipeline, merges, str(arguments.history), str(arguments.migrations))
+        (
+            pipeline,
+            merges,
+            str(arguments.history),
+            str(arguments.migrations),
+            str(arguments.resolved) if arguments.resolved else None,
+        )
         for pipeline, merges in sorted(by_pipeline.items())
     ]
     with arguments.out.open("w") as out, ProcessPoolExecutor(8) as executor:
