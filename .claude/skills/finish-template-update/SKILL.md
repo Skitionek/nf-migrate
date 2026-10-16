@@ -55,6 +55,11 @@ Work file by file, not hunk by hunk.
    pipeline change that the template change does not touch. Where both
    changed the same lines, make the template's change *in the pipeline's
    terms*: its channel names, parameters, indentation, quoting and order.
+   **Change only the tokens the template changes.** Leave the rest of each
+   line as it is: no reflowing of ternaries or argument lists, no new
+   spacing inside brackets, no trailing commas the line did not have, no
+   dropped end-of-line comments. Reformatting is the most common way to
+   drift from what maintainers merged.
 4. **Decide per change, using the rules below.** When in doubt, apply.
    Maintainers declined fewer than one in ten of these changes; mostly
    they adapted them.
@@ -102,8 +107,10 @@ From 1,127 merged nf-core template updates, file by file:
 
 **Adapt** (the template's example code meets the pipeline's own):
 - `workflows/<name>.nf`: apply plumbing changes — version collection,
-  MultiQC inputs, `channel` vs `Channel`, method descriptions, softwareVersionsToYAML
-  — to the pipeline's equivalent lines. Do not add the template's example
+  MultiQC inputs, method descriptions, `softwareVersionsToYAML` — to the
+  pipeline's equivalent lines. A rename the template makes for the linter
+  (`Channel` → `channel`) goes through the *whole* file, the pipeline's
+  own lines included: that is what maintainers did. Do not add the template's example
   processes (FASTQC) or channels the pipeline does not use.
 - `README.md`, `docs/usage.md`, `docs/output.md`, `CITATIONS.md`: apply
   generic changes (badges, links, Nextflow/nf-core instructions, wording
@@ -130,6 +137,10 @@ into the new structure.
 ## Check before you finish
 
 - No conflict markers: `git grep -n -E '^(<<<<<<<|>>>>>>>|=======$)'`.
+- Every file nf-migrate or you changed still closes its blocks and
+  strings (count `{`/`}` and `"""` in Nextflow and Groovy files). An
+  operation that removes part of a block the pipeline edited can leave one
+  open; finish the removal as the template's `TO/` file has it.
 - Every YAML and JSON file still parses; `nextflow_schema.json` is valid
   JSON Schema.
 - `nf-core pipelines lint` (if available) shows no new failures compared
