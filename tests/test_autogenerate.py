@@ -4,6 +4,7 @@ from pathlib import Path
 
 from nf_migrate.autogenerate import diff_hunks, generate_migration
 from nf_migrate.migrations import load_migrations
+from nf_migrate.operations import Outcome, Replace, Workspace
 from nf_migrate.runner import upgrade
 
 
@@ -254,3 +255,48 @@ def test_insertion_keeps_context_to_detect_reapplication() -> None:
 
     # Then
     assert hunks == [("first\nlast\n", "first\nadded\nlast\n")]
+
+
+def test_hunks_stay_unique_while_earlier_hunks_are_applied(
+    tmp_path: Path,
+) -> None:
+    # Given a change that moves "Pull" up and replaces the old "Pull", so
+    # once the first hunk is in, "Pull" alone occurs twice (nf-core/tools
+    # 1.10 did this to ci.yml)
+    old_text = "A\nX1\nX2\nX3\nPull\nC\n"
+    new_text = "A\nPull\nX1\nX2\nX3\nRun\nC\n"
+    (tmp_path / "ci.yml").write_text(old_text)
+    workspace = Workspace(tmp_path)
+
+    # When
+    hunks = diff_hunks(old_text, new_text)
+    outcomes = [
+        Replace("ci.yml", old, new).apply(workspace).outcome
+        for old, new in hunks
+    ]
+
+    # Then
+    assert outcomes == [Outcome.APPLIED] * len(hunks)
+    assert workspace.read("ci.yml") == new_text
+
+
+def test_a_hunk_reads_as_already_applied_on_the_new_template(
+    tmp_path: Path,
+) -> None:
+    # Given an insertion whose context before it is also how the new text
+    # starts (nf-core/tools 1.11 did this to docs/output.md)
+    old_text = "# Output\n\nThis document\n\n* `multiqc/`\n"
+    new_text = "# Output\n\n## warning\n\nThis document\n\n* `multiqc/`\n"
+    (tmp_path / "output.md").write_text(new_text)
+    workspace = Workspace(tmp_path)
+
+    # When the hunks run again on the updated file
+    hunks = diff_hunks(old_text, new_text)
+    outcomes = [
+        Replace("output.md", old, new).apply(workspace).outcome
+        for old, new in hunks
+    ]
+
+    # Then
+    assert outcomes == [Outcome.ALREADY_APPLIED] * len(hunks)
+    assert workspace.read("output.md") == new_text

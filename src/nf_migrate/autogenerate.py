@@ -260,9 +260,19 @@ def _choose_unique_context(
             old_block, new_block = _hunk_blocks(
                 hunk, opcodes, old_lines, new_lines
             )
-            if _is_unique(old_text, old_block) and _is_unique(
-                new_text, new_block
-            ):
+            # Hunks apply top to bottom, so the old block has to be unique
+            # in the file with the hunks above it already applied. It must
+            # also be gone from the new file, or running the migration
+            # again would apply it twice instead of finding it applied.
+            text_when_applied = _text_before_hunk(
+                hunk, opcodes, old_lines, new_lines
+            )
+            is_unambiguous = (
+                _is_unique(text_when_applied, old_block)
+                and _is_unique(new_text, new_block)
+                and not find_line_aligned(new_text, old_block)
+            )
+            if is_unambiguous:
                 found_unique_context = True
                 break
 
@@ -309,6 +319,16 @@ def _hunk_blocks(
         new_start - hunk.context_before : new_end + hunk.context_after
     ]
     return "".join(old_block), "".join(new_block)
+
+
+def _text_before_hunk(
+    hunk: Hunk, opcodes: list, old_lines: list[str], new_lines: list[str]
+) -> str:
+    """The file once every change above `hunk` is applied."""
+    _, old_start, _, new_start, _ = opcodes[hunk.first_opcode]
+    lines_above = new_lines[:new_start]
+    lines_from_hunk = old_lines[old_start:]
+    return "".join(lines_above + lines_from_hunk)
 
 
 def _equal_length(opcodes: list, index: int) -> int:
