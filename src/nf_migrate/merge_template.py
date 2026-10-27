@@ -191,6 +191,10 @@ LINT_FIXES = (
     ("container_configs", "chore: regenerate container configs"),
 )
 
+# The files this fix rewrites must match the template, and the template
+# branch holds the render CI compares them with.
+TEMPLATE_RENDER_FIXES = ("files_unchanged",)
+
 
 def _commit_lint_fixes(
     worktree: Path, merge_commit: str, head_sha: str, version: str
@@ -198,6 +202,8 @@ def _commit_lint_fixes(
     _git(worktree, "reset", "--quiet", "--hard", merge_commit)
     for fix_name, message in LINT_FIXES:
         _run_lint_fix(worktree, fix_name, version)
+        if fix_name in TEMPLATE_RENDER_FIXES:
+            _restore_template_render(worktree, head_sha)
         _restore_template_logos(worktree, head_sha)
         if _git(worktree, "status", "--porcelain"):
             _git(worktree, "add", "--all")
@@ -227,6 +233,20 @@ def _run_lint_fix(worktree: Path, fix_name: str, version: str) -> None:
             "--lint-fix needs uv (uvx) to run the nf-core release of the "
             "template"
         ) from None
+
+
+def _restore_template_render(worktree: Path, head_sha: str) -> None:
+    # nf-core formats the files it fixes with prettier when it is installed,
+    # and CI's lint, which has none, then reports them as not matching the
+    # template. Whatever the fix rewrote is put back as the template branch
+    # has it.
+    template_files = set(
+        _git(worktree, "ls-tree", "-r", "--name-only", head_sha).splitlines()
+    )
+    changed_files = _git(worktree, "diff", "--name-only").splitlines()
+    rewritten = [path for path in changed_files if path in template_files]
+    if rewritten:
+        _git(worktree, "checkout", head_sha, "--", *rewritten)
 
 
 def _restore_template_logos(worktree: Path, head_sha: str) -> None:

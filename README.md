@@ -138,7 +138,8 @@ the resolved PR, give checkout a PAT or GitHub App token instead.
 (action pins, RO-Crate), one for the regenerated container configs. It runs
 the nf-core release of the template through `uvx`, because CI lints with that
 release, and puts back the logos of the template branch, which nf-core would
-redraw. It prints the last commit.
+redraw, and every file the first fix rewrote, because nf-core formats those with
+prettier when it is installed and CI's lint has none. It prints the last commit.
 
 `merge-template --compile-check` then runs `nextflow inspect -format json` on
 the final tree, to catch what lint reports late and under another name, such

@@ -313,6 +313,11 @@ def fake_nf_core(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         'while [ "$1" != "--fix" ]; do shift; done\n'
         'echo fixed > "$directory/$2.fixed"\n'
         'echo redrawn > "$directory/nf-core-pipeline_logo_light.png"\n'
+        # nf-core formats a file with prettier when it is installed.
+        'if [ "$2" = files_unchanged ] && [ -n "$FAKE_NF_CORE_REFORMAT" ]\n'
+        "then\n"
+        '  echo "prettier formatted" > "$directory/$FAKE_NF_CORE_REFORMAT"\n'
+        "fi\n"
         # nf-core exits 1 when other lint tests still fail.
         "exit 1\n"
     )
@@ -420,6 +425,32 @@ def test_lint_fix_runs_the_template_release_of_nf_core(
     assert all(
         line.startswith("nf-core@3.3.1 pipelines lint") for line in invocations
     )
+
+
+def test_lint_fix_keeps_template_files_that_nf_core_reformats(
+    repo: Path,
+    migrations_dir: Path,
+    fake_nf_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given a template file that nf-core would rewrite with prettier, which
+    # CI does not run
+    commit_files(repo, {"email_template.html": "<BR>\n"}, "add email template")
+    git(repo, "checkout", "-q", "TEMPLATE")
+    commit_files(
+        repo, {"email_template.html": "<br>\n"}, "update email template"
+    )
+    git(repo, "checkout", "-q", "dev")
+    monkeypatch.setenv("FAKE_NF_CORE_REFORMAT", "email_template.html")
+
+    # When
+    result = merge_template(
+        repo, "dev", "TEMPLATE", migrations_dir, lint_fix=True
+    )
+
+    # Then the file is the one of the template branch
+    assert result.commit is not None
+    assert git(repo, "show", f"{result.commit}:email_template.html") == "<br>"
 
 
 def test_lint_fix_keeps_the_logos_of_the_template_branch(
