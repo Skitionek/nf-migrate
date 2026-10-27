@@ -121,7 +121,7 @@ def _build_parser() -> argparse.ArgumentParser:
     merge.add_argument(
         "--compile-check",
         action="store_true",
-        help="warn if `nextflow inspect` cannot compile the merged pipeline",
+        help="warn if Nextflow cannot compile or preview the merged pipeline",
     )
     merge.set_defaults(handler=_merge_template)
 
@@ -144,7 +144,7 @@ def _merge_template(arguments: argparse.Namespace) -> int:
     print(result.report.render() or "already up to date", file=sys.stderr)
     if result.compile_check is not None and not result.compile_check.passed:
         print(
-            "warning: Nextflow could not compile the merged pipeline:\n"
+            f"warning: {result.compile_check.summary}\n"
             + result.compile_check.error,
             file=sys.stderr,
         )

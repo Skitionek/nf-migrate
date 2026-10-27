@@ -146,7 +146,11 @@ the final tree, to catch what lint reports late and under another name, such
 as an `include` of a name that an updated shared subworkflow no longer has.
 `nextflow config` does not parse the scripts and passes on such a pipeline, so
 `inspect` is the cheapest command that compiles them; it runs no process, and
-neither nf-test nor the pipeline. A failure never changes the commits: the
+neither nf-test nor the pipeline. If that passes it also runs
+`nextflow run -profile test,docker -preview`, which validates the parameters
+against the schema: an nf-schema release stricter than the old one, for example
+one that rejects `""` for a `file-path` parameter, otherwise only fails in CI's
+nf-test. A failure of either never changes the commits: the
 first lines of Nextflow's error go to stderr and into the report as a warning,
 and the exit code stays 0, because Nextflow may also fail on a network
 resource. Without the `nextflow` command the option stops with an error.

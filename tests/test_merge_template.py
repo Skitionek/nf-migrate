@@ -493,6 +493,10 @@ def fake_nextflow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         '  echo "$FAKE_NEXTFLOW_ERROR" >&2\n'
         "  exit 1\n"
         "fi\n"
+        'if [ "$1" = run ] && [ -n "$FAKE_NEXTFLOW_RUN_ERROR" ]; then\n'
+        '  echo "$FAKE_NEXTFLOW_RUN_ERROR" >&2\n'
+        "  exit 1\n"
+        "fi\n"
         "echo '{\"processes\": []}'\n"
     )
     executable.chmod(0o755)
@@ -526,6 +530,76 @@ def test_compile_check_passes_when_nextflow_inspects_the_pipeline(
     assert "compile" not in result.render_markdown().lower()
     log_lines = fake_nextflow.read_text().splitlines()
     assert log_lines[0].startswith("ansi=false args=inspect -format json ")
+
+
+EMPTY_FILE_PATH_ERROR = (
+    "* --library_path_ms2query (): could not validate file format of '': "
+    "Argument of `file()` function cannot be empty"
+)
+
+
+def test_compile_check_previews_the_test_profile_after_inspecting(
+    repo: Path, migrations_dir: Path, fake_nextflow: Path
+) -> None:
+    # Given a pipeline that compiles
+
+    # When
+    merge_template(repo, "dev", "TEMPLATE", migrations_dir, compile_check=True)
+
+    # Then the parameters are validated with a preview run
+    calls = [
+        line
+        for line in fake_nextflow.read_text().splitlines()
+        if line.startswith("ansi=")
+    ]
+    assert calls[0].startswith("ansi=false args=inspect ")
+    assert calls[1].startswith("ansi=false args=run ")
+    assert "-profile test,docker -preview --outdir " in calls[1]
+
+
+def test_preview_failure_keeps_the_commit_and_reports_a_warning(
+    repo: Path,
+    migrations_dir: Path,
+    fake_nextflow: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given a pipeline that compiles but whose parameters fail validation
+    monkeypatch.setenv("FAKE_NEXTFLOW_RUN_ERROR", EMPTY_FILE_PATH_ERROR)
+
+    # When
+    result = merge_template(
+        repo, "dev", "TEMPLATE", migrations_dir, compile_check=True
+    )
+
+    # Then
+    assert result.commit is not None
+    assert result.compile_check is not None
+    assert not result.compile_check.passed
+    markdown = result.render_markdown()
+    assert "[!WARNING]" in markdown
+    assert "in a preview run" in markdown
+    assert "--library_path_ms2query" in markdown
+
+
+def test_compile_failure_skips_the_preview_run(
+    repo: Path,
+    migrations_dir: Path,
+    fake_nextflow: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given a pipeline that Nextflow cannot compile
+    monkeypatch.setenv("FAKE_NEXTFLOW_ERROR", IM_NOTIFICATION_ERROR)
+
+    # When
+    merge_template(repo, "dev", "TEMPLATE", migrations_dir, compile_check=True)
+
+    # Then only inspect ran
+    calls = [
+        line
+        for line in fake_nextflow.read_text().splitlines()
+        if line.startswith("ansi=")
+    ]
+    assert len(calls) == 1
 
 
 def test_compile_check_runs_nextflow_outside_the_pipeline_and_checkout(
