@@ -111,6 +111,9 @@ operations = [
 """,
         every=True,
     ),
+    FirstOf(
+        '.github/workflows/awsfulltest.yml',
+        operations=(
     Replace(
         '.github/workflows/awsfulltest.yml',
         old="""\
@@ -128,6 +131,15 @@ operations = [
         # Add full size test data (but still relatively small datasets for few samples)
 """,
         every=True,
+    ),
+    # Dependabot may have updated the SHA with a slightly different version comment (e.g. # v2.4 vs # v2.4.0)
+    RegexReplace(
+        '.github/workflows/awsfulltest.yml',
+        pattern=r'action-tower-launch@[0-9a-f]+ # v2(?:\.\d+)+\b',
+        replacement='action-tower-launch@v2',
+        applied=r'action-tower-launch@v2\b',
+    ),
+        ),
     ),
     Replace(
         '.github/workflows/download_pipeline.yml',

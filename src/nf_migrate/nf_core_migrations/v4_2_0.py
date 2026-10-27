@@ -92,6 +92,13 @@ operations = [
         replacement='9856f1ae20c8b02884733f79b7cd0e3ea5d2bdab # v2.4.0',
         applied='9856f1ae20c8b02884733f79b7cd0e3ea5d2bdab # v2\\.4\\.0',
     ),
+    # Dependabot may have already updated the SHA to a different version comment format
+    RegexReplace(
+        '.github/workflows/awsfulltest.yml',
+        pattern=r'action-tower-launch@[0-9a-f]+ # v2(?:\.\d+)*\b',
+        replacement='action-tower-launch@9856f1ae20c8b02884733f79b7cd0e3ea5d2bdab # v2.4.0',
+        applied=r'9856f1ae20c8b02884733f79b7cd0e3ea5d2bdab # v2\.4',
+    ),
         ),
     ),
     Replace(
@@ -143,6 +150,9 @@ operations = [
     ),
         ),
     ),
+    FirstOf(
+        '.github/workflows/awstest.yml',
+        operations=(
     Replace(
         '.github/workflows/awstest.yml',
         old="""\
@@ -160,6 +170,15 @@ operations = [
           workspace_id: ${{ vars.TOWER_WORKSPACE_ID }}
 """,
         every=True,
+    ),
+    # Dependabot may have already updated the SHA to a newer version
+    RegexReplace(
+        '.github/workflows/awstest.yml',
+        pattern=r'action-tower-launch@[0-9a-f]+ # v2(?:\.\d+)*\b',
+        replacement='action-tower-launch@v2',
+        applied=r'action-tower-launch@v2\b',
+    ),
+        ),
     ),
     FirstOf(
         '.github/workflows/awstest.yml',
@@ -746,6 +765,9 @@ plugins {
     ),
         ),
     ),
+    FirstOf(
+        'subworkflows/local/utils_nfcore_{{pipeline_name}}_pipeline/main.nf',
+        operations=(
     Replace(
         'subworkflows/local/utils_nfcore_{{pipeline_name}}_pipeline/main.nf',
         old="""\
@@ -762,6 +784,15 @@ plugins {
     )
 
 """,
+    ),
+    # Some pipelines use trailing commas in the positional-argument style
+    RegexReplace(
+        'subworkflows/local/utils_nfcore_{{pipeline_name}}_pipeline/main.nf',
+        pattern=r'(        after_text,\n        command,\n)        false(,?\n    \)\n)',
+        replacement=r'\1        null\2',
+        applied=r'        after_text,\n        command,\n        null',
+    ),
+        ),
     ),
     FirstOf(
         'subworkflows/local/utils_nfcore_{{pipeline_name}}_pipeline/main.nf',
