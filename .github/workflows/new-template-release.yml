@@ -104,12 +104,13 @@ jobs:
           current="${{ steps.current.outputs.version }}"
           new="${{ steps.latest.outputs.version }}"
 
-          uv run nf-migrate revision \
+          uv run nf-migrate \
+            --migrations src/nf_migrate/nf_core_migrations \
+            revision \
             "v$current" \
             "v$new" \
             --repo "$HISTORY_REPO" \
-            --changelog "${{ steps.changelog.outputs.path }}" \
-            --migrations src/nf_migrate/nf_core_migrations
+            --changelog "${{ steps.changelog.outputs.path }}"
 
           file="src/nf_migrate/nf_core_migrations/v${new//./_}.py"
           echo "file=$file" >> "$GITHUB_OUTPUT"
