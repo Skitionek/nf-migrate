@@ -110,6 +110,18 @@ with `gh pr create --draft`.
   and may still need hand work. The report warns when the stamp and the
   files disagree; see
   [When nf_core_version is wrong](../README.md#when-nf_core_version-is-wrong).
+- A rename in the template (`fix_linting.yml` to `fix-linting.yml`) conflicts
+  on the old file when `dev` already took the new content under the old name:
+  nf-migrate only deletes a file that is still the template's. `git mv` it
+  and keep `dev`'s content.
+- `nf-core pipelines lint --fix` run by hand formats files with prettier when
+  it is installed, and CI's lint has none. `--lint-fix` undoes this; after a
+  manual fix, restore the files the template branch holds.
+- A newer nf-schema can reject params `dev` set before, such as `""` for a
+  `file-path`. `--compile-check` previews the test profile to find it; set the
+  default to `null`.
+- On the stacked PRs the `download` and `Check PRs` checks fail whatever the
+  migration holds, because their base is not `dev`. They also fail on PR 1.
 - Docker nf-test failures can be pre-existing. Compare with the pipeline's
   `patch` or `dev` runs before chasing them.
 
