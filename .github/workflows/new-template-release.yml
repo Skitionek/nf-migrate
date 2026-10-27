@@ -1,0 +1,144 @@
+name: New template release
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"  # Monday 03:00 UTC (outside working hours)
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "nf-core/tools version to add (e.g. 4.3.0). Leave empty to auto-detect."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-and-generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Get latest nf-core/tools version
+        id: latest
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            version=$(curl -fsS https://pypi.org/pypi/nf-core/json \
+              | python3 -c 'import json, sys; print(json.load(sys.stdin)["info"]["version"])')
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get latest migration version
+        id: current
+        run: |
+          latest_file=$(ls src/nf_migrate/nf_core_migrations/v*.py | sort -V | tail -1)
+          version=$(python3 -c "
+          import re, pathlib
+          content = pathlib.Path('$latest_file').read_text()
+          m = re.search(r\"^revision = '([^']+)'\", content, re.MULTILINE)
+          print(m.group(1))
+          ")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check if migration already exists
+        id: check
+        run: |
+          new="${{ steps.latest.outputs.version }}"
+          current="${{ steps.current.outputs.version }}"
+          file="src/nf_migrate/nf_core_migrations/v${new//./_}.py"
+          if [ -f "$file" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Migration for $new already exists — nothing to do."
+          elif [ "$new" = "$current" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Already at $new — nothing to do."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "New release detected: $current → $new"
+          fi
+
+      - name: Build template history for new version
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          current="${{ steps.current.outputs.version }}"
+          new="${{ steps.latest.outputs.version }}"
+
+          # Build the history repo with just the two releases we need
+          history_repo=$(mktemp -d)
+          bash scripts/build_template_history.sh \
+            scripts/sentinel.nf-core.yml \
+            "$history_repo" \
+            "$current" \
+            "$new"
+
+          echo "HISTORY_REPO=$history_repo" >> "$GITHUB_ENV"
+
+      - name: Fetch nf-core/tools CHANGELOG
+        if: steps.check.outputs.exists == 'false'
+        id: changelog
+        run: |
+          new="${{ steps.latest.outputs.version }}"
+          changelog_path=$(mktemp)
+          curl -fsS \
+            "https://raw.githubusercontent.com/nf-core/tools/refs/tags/${new}/CHANGELOG.md" \
+            -o "$changelog_path" \
+            || echo "(could not fetch CHANGELOG)" > "$changelog_path"
+          echo "path=$changelog_path" >> "$GITHUB_OUTPUT"
+
+      - name: Generate migration
+        if: steps.check.outputs.exists == 'false'
+        id: generate
+        run: |
+          current="${{ steps.current.outputs.version }}"
+          new="${{ steps.latest.outputs.version }}"
+
+          uv run nf-migrate revision \
+            "v$current" \
+            "v$new" \
+            --repo "$HISTORY_REPO" \
+            --changelog "${{ steps.changelog.outputs.path }}" \
+            --migrations src/nf_migrate/nf_core_migrations
+
+          file="src/nf_migrate/nf_core_migrations/v${new//./_}.py"
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+
+      - name: Open pull request
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          new="${{ steps.latest.outputs.version }}"
+          branch="feat/nf-core-tools-${new}"
+          file="${{ steps.generate.outputs.file }}"
+
+          git checkout -b "$branch"
+          git add "$file"
+          git commit -m "feat(migrations): add the nf-core/tools ${new} template updates"
+          git push origin "$branch"
+
+          pr_body="Adds the generated migration for nf-core/tools ${new}.
+
+The migration was generated automatically by the \`new-template-release\` workflow.
+Review the generated file and edit it as needed before merging.
+
+## Checklist
+- [ ] Review the generated migration for correctness
+- [ ] Add any manual steps that cannot be expressed as operations
+- [ ] Run the test suite"
+
+          gh pr create \
+            --draft \
+            --title "feat(migrations): add the nf-core/tools ${new} template updates" \
+            --body "$pr_body"
