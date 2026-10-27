@@ -64,7 +64,7 @@ from the `manifest` in `nextflow.config` instead.
 
 ## Upgrading a pipeline
 
-The chain for nf-core/tools 1.9 → 4.1.0 ships with the package
+The chain for nf-core/tools 1.9 → 4.2.1 ships with the package
 (`src/nf_migrate/nf_core_migrations`):
 
 ```bash
@@ -158,7 +158,7 @@ To resolve a sync PR the action cannot, see
 The chain starts at 1.9 because some nf-core pipelines never merged a
 newer template: slamseq, imcyto and mnaseseq are still on 1.9, and
 dualrnaseq and cageseq on 1.12.1 (October 2026). Their TEMPLATE branches
-hold syncs up to 4.1.0, so their next sync PR has to bridge every
+hold syncs up to 4.2.1, so their next sync PR has to bridge every
 release in between in one git merge.
 
 Those pipelines have no `nf_core_version`, often no `.nf-core.yml` at all.
