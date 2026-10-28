@@ -844,6 +844,68 @@ class ManualStep:
         return OperationResult(path, Outcome.MANUAL, self.instruction)
 
 
+@dataclass(frozen=True, slots=True)
+class SnapNormalize:
+    """Sort JSON keys in nf-test snapshot files.
+
+    Nextflow 26.04.0 changed the order in which it reports tool versions,
+    switching from insertion order to alphabetical. Sorting the keys in all
+    leaf dicts (version maps) normalises snapshots so they pass regardless
+    of the Nextflow version that ran them.
+
+    A leaf dict is one whose values are all non-dicts (strings, numbers).
+    Those are the per-tool version maps; the enclosing tool-group dicts have
+    dict values and are left in place.
+    """
+
+    glob: str = "**/*.snap"
+
+    @property
+    def path(self) -> str:
+        return self.glob
+
+    def apply(self, workspace: Workspace) -> list[OperationResult]:
+        paths = sorted(
+            str(p.relative_to(workspace.root))
+            for p in workspace.root.glob(self.glob)
+            if p.is_file()
+        )
+        if not paths:
+            return [OperationResult(self.glob, Outcome.SKIPPED, "no files matched")]
+        results = []
+        for path in paths:
+            content = workspace.read(path)
+            if content is None:
+                continue
+            try:
+                data = json.loads(content)
+            except json.JSONDecodeError:
+                results.append(
+                    OperationResult(path, Outcome.CONFLICT, "invalid JSON")
+                )
+                continue
+            sorted_data = _sort_leaf_dicts(data)
+            sorted_content = json.dumps(sorted_data, indent=4) + "\n"
+            if sorted_content == content:
+                results.append(OperationResult(path, Outcome.ALREADY_APPLIED))
+            else:
+                workspace.write(path, sorted_content)
+                results.append(OperationResult(path, Outcome.APPLIED))
+        return results
+
+
+def _sort_leaf_dicts(obj: object) -> object:
+    """Recursively sort keys in dicts whose values are all non-dicts."""
+    if isinstance(obj, dict):
+        processed = {k: _sort_leaf_dicts(v) for k, v in obj.items()}
+        if all(not isinstance(v, dict) for v in obj.values()):
+            return dict(sorted(processed.items()))
+        return processed
+    if isinstance(obj, list):
+        return [_sort_leaf_dicts(item) for item in obj]
+    return obj
+
+
 NF_CORE_MODULES_REPO = "https://github.com/nf-core/modules.git"
 
 

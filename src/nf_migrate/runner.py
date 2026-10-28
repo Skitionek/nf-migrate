@@ -134,7 +134,13 @@ def _apply_migration(
     # Migrations are generated against .nf-core.yml already stamped with
     # their revision, so stamp it the same way before applying them.
     stamp_workspace(workspace, migration.revision)
-    results = [operation.apply(workspace) for operation in migration.operations]
+    results: list[OperationResult] = []
+    for operation in migration.operations:
+        raw = operation.apply(workspace)
+        if isinstance(raw, list):
+            results.extend(raw)
+        else:
+            results.append(raw)
     migration_report = MigrationReport(migration.revision, results)
 
     if migration_report.conflicts and not allow_conflicts:

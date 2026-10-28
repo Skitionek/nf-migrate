@@ -106,8 +106,10 @@ def _migration_evidence(
     stamp_workspace(workspace, migration.revision)
     counts = {outcome: 0 for outcome in Outcome}
     for operation in migration.operations:
-        result = operation.apply(workspace)
-        counts[result.outcome] += 1
+        raw = operation.apply(workspace)
+        results = raw if isinstance(raw, list) else [raw]
+        for result in results:
+            counts[result.outcome] += 1
     return MigrationEvidence(
         revision=migration.revision,
         applicable=counts[Outcome.APPLIED],

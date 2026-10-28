@@ -20,6 +20,7 @@ from nf_migrate.operations import (
     RemoveText,
     Replace,
     ReplaceFile,
+    SnapNormalize,
 )
 from nf_migrate.yaml_edit import YamlListItem, YamlSet
 
@@ -399,4 +400,5 @@ operations = [
         'ro-crate-metadata.json',
         'regenerate with `nf-core pipelines rocrate`',
     ),
+    SnapNormalize(),
 ]

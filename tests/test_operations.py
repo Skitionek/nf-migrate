@@ -10,6 +10,7 @@ from nf_migrate.operations import (
     RemoveText,
     Replace,
     ReplaceFile,
+    SnapNormalize,
     Workspace,
 )
 
@@ -1007,3 +1008,133 @@ def test_create_file_still_creates_a_missing_file(tmp_path: Path) -> None:
 
     # Then
     assert result.outcome is Outcome.APPLIED
+
+
+# SnapNormalize
+SNAP_UNSORTED = """\
+{
+    "-profile test": {
+        "content": [
+            {
+                "SUMMARIZER": {
+                    "python": "3.11.0",
+                    "pandas": "1.5.2",
+                    "numpy": "1.24.2"
+                },
+                "SUMMARY_CLASSIFICATION": {
+                    "python": "3.11.0",
+                    "pandas": "1.5.2"
+                },
+                "Workflow": {
+                    "nf-core/mypipeline": "v1.0.0"
+                }
+            }
+        ]
+    }
+}
+"""
+
+SNAP_SORTED = """\
+{
+    "-profile test": {
+        "content": [
+            {
+                "SUMMARIZER": {
+                    "numpy": "1.24.2",
+                    "pandas": "1.5.2",
+                    "python": "3.11.0"
+                },
+                "SUMMARY_CLASSIFICATION": {
+                    "pandas": "1.5.2",
+                    "python": "3.11.0"
+                },
+                "Workflow": {
+                    "nf-core/mypipeline": "v1.0.0"
+                }
+            }
+        ]
+    }
+}
+"""
+
+
+def test_snap_normalize_sorts_leaf_dict_keys(tmp_path: Path) -> None:
+    # Given a snapshot with unsorted version keys
+    workspace = make_workspace(tmp_path, {"tests/default.nf.test.snap": SNAP_UNSORTED})
+
+    # When
+    results = SnapNormalize().apply(workspace)
+
+    # Then
+    assert len(results) == 1
+    assert results[0].outcome is Outcome.APPLIED
+    assert workspace.read("tests/default.nf.test.snap") == SNAP_SORTED
+
+
+def test_snap_normalize_is_already_applied_when_keys_are_sorted(tmp_path: Path) -> None:
+    # Given a snapshot already in alphabetical order
+    workspace = make_workspace(tmp_path, {"tests/default.nf.test.snap": SNAP_SORTED})
+
+    # When
+    results = SnapNormalize().apply(workspace)
+
+    # Then
+    assert len(results) == 1
+    assert results[0].outcome is Outcome.ALREADY_APPLIED
+    assert workspace.read("tests/default.nf.test.snap") == SNAP_SORTED
+
+
+def test_snap_normalize_skips_when_no_files_match(tmp_path: Path) -> None:
+    # Given a workspace with no snap files
+    workspace = make_workspace(tmp_path, {"main.nf": "workflow {}\n"})
+
+    # When
+    results = SnapNormalize().apply(workspace)
+
+    # Then
+    assert len(results) == 1
+    assert results[0].outcome is Outcome.SKIPPED
+
+
+def test_snap_normalize_processes_all_matching_files(tmp_path: Path) -> None:
+    # Given two snap files with unsorted keys
+    workspace = make_workspace(tmp_path, {
+        "tests/a.nf.test.snap": SNAP_UNSORTED,
+        "tests/b.nf.test.snap": SNAP_UNSORTED,
+    })
+
+    # When
+    results = SnapNormalize().apply(workspace)
+
+    # Then
+    assert len(results) == 2
+    assert all(r.outcome is Outcome.APPLIED for r in results)
+    assert workspace.read("tests/a.nf.test.snap") == SNAP_SORTED
+    assert workspace.read("tests/b.nf.test.snap") == SNAP_SORTED
+
+
+def test_snap_normalize_does_not_sort_enclosing_tool_group_dicts(tmp_path: Path) -> None:
+    # Given tool-group dicts have dict values — they must not be reordered
+    snap = """\
+{
+    "-profile test": {
+        "content": [
+            {
+                "ZTOOL": {
+                    "ztool": "1.0"
+                },
+                "ATOOL": {
+                    "atool": "2.0"
+                }
+            }
+        ]
+    }
+}
+"""
+    workspace = make_workspace(tmp_path, {"tests/default.nf.test.snap": snap})
+
+    # When
+    results = SnapNormalize().apply(workspace)
+
+    # Then — outer dict unchanged, inner single-key dicts unchanged
+    assert results[0].outcome is Outcome.ALREADY_APPLIED
