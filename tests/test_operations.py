@@ -1060,7 +1060,9 @@ SNAP_SORTED = """\
 
 def test_snap_normalize_sorts_leaf_dict_keys(tmp_path: Path) -> None:
     # Given a snapshot with unsorted version keys
-    workspace = make_workspace(tmp_path, {"tests/default.nf.test.snap": SNAP_UNSORTED})
+    workspace = make_workspace(
+        tmp_path, {"tests/default.nf.test.snap": SNAP_UNSORTED}
+    )
 
     # When
     results = SnapNormalize().apply(workspace)
@@ -1071,9 +1073,13 @@ def test_snap_normalize_sorts_leaf_dict_keys(tmp_path: Path) -> None:
     assert workspace.read("tests/default.nf.test.snap") == SNAP_SORTED
 
 
-def test_snap_normalize_is_already_applied_when_keys_are_sorted(tmp_path: Path) -> None:
+def test_snap_normalize_is_already_applied_when_keys_are_sorted(
+    tmp_path: Path,
+) -> None:
     # Given a snapshot already in alphabetical order
-    workspace = make_workspace(tmp_path, {"tests/default.nf.test.snap": SNAP_SORTED})
+    workspace = make_workspace(
+        tmp_path, {"tests/default.nf.test.snap": SNAP_SORTED}
+    )
 
     # When
     results = SnapNormalize().apply(workspace)
@@ -1113,7 +1119,9 @@ def test_snap_normalize_processes_all_matching_files(tmp_path: Path) -> None:
     assert workspace.read("tests/b.nf.test.snap") == SNAP_SORTED
 
 
-def test_snap_normalize_does_not_sort_enclosing_tool_group_dicts(tmp_path: Path) -> None:
+def test_snap_normalize_does_not_sort_enclosing_tool_group_dicts(
+    tmp_path: Path,
+) -> None:
     # Given tool-group dicts have dict values — they must not be reordered
     snap = """\
 {
