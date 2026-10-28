@@ -871,7 +871,9 @@ class SnapNormalize:
             if p.is_file()
         )
         if not paths:
-            return [OperationResult(self.glob, Outcome.SKIPPED, "no files matched")]
+            return [
+                OperationResult(self.glob, Outcome.SKIPPED, "no files matched")
+            ]
         results = []
         for path in paths:
             content = workspace.read(path)
