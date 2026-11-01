@@ -849,13 +849,15 @@ class SnapNormalize:
     """Sort JSON keys in nf-test snapshot files.
 
     Nextflow 26.04.0 changed the order in which it reports tool versions,
-    switching from insertion order to alphabetical. Sorting the keys in all
-    leaf dicts (version maps) normalises snapshots so they pass regardless
-    of the Nextflow version that ran them.
+    switching from insertion order to alphabetical. Sorting the keys in the
+    per-tool version maps normalises snapshots so they pass regardless of
+    the Nextflow version that ran them.
 
-    A leaf dict is one whose values are all non-dicts (strings, numbers).
-    Those are the per-tool version maps; the enclosing tool-group dicts have
-    dict values and are left in place.
+    A version map is a dict whose values are all strings — the tool-to-version
+    pairs. Any dict with a richer value (a nested dict, a list, a number, a
+    boolean) describes test content whose key order the assertion depends on,
+    such as an AnnData `obs`/`var` summary or a channel `meta` map, so it is
+    left in place.
     """
 
     glob: str = "**/*.snap"
@@ -886,7 +888,7 @@ class SnapNormalize:
                     OperationResult(path, Outcome.CONFLICT, "invalid JSON")
                 )
                 continue
-            sorted_data = _sort_leaf_dicts(data)
+            sorted_data = _sort_version_maps(data)
             sorted_content = json.dumps(sorted_data, indent=4) + "\n"
             if sorted_content == content:
                 results.append(OperationResult(path, Outcome.ALREADY_APPLIED))
@@ -896,15 +898,29 @@ class SnapNormalize:
         return results
 
 
-def _sort_leaf_dicts(obj: object) -> object:
-    """Recursively sort keys in dicts whose values are all non-dicts."""
+# nf-test records the Nextflow and nf-test versions that wrote a snapshot
+# under this key. It is bookkeeping, not an assertion, so leave it alone.
+SNAPSHOT_METADATA_KEY = "meta"
+
+
+def _sort_version_maps(obj: object) -> object:
+    """Recursively sort keys in dicts whose values are all strings."""
     if isinstance(obj, dict):
-        processed = {k: _sort_leaf_dicts(v) for k, v in obj.items()}
-        if all(not isinstance(v, dict) for v in obj.values()):
+        processed = {}
+        for key, value in obj.items():
+            if key == SNAPSHOT_METADATA_KEY:
+                processed[key] = value
+            else:
+                processed[key] = _sort_version_maps(value)
+
+        is_version_map = bool(obj) and all(
+            isinstance(value, str) for value in obj.values()
+        )
+        if is_version_map:
             return dict(sorted(processed.items()))
         return processed
     if isinstance(obj, list):
-        return [_sort_leaf_dicts(item) for item in obj]
+        return [_sort_version_maps(item) for item in obj]
     return obj
 
 
