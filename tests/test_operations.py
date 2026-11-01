@@ -1146,3 +1146,39 @@ def test_snap_normalize_does_not_sort_enclosing_tool_group_dicts(
 
     # Then — outer dict unchanged, inner single-key dicts unchanged
     assert results[0].outcome is Outcome.ALREADY_APPLIED
+
+
+def test_snap_normalize_leaves_anndata_summaries_alone(
+    tmp_path: Path,
+) -> None:
+    # Given an AnnData summary whose key order the nft-anndata assertion
+    # compares verbatim — "index" is emitted before "columns"
+    snap = """\
+{
+    "homo_sapiens - h5ad": {
+        "content": [
+            {
+                "n_obs": 5756,
+                "obs": {
+                    "index": "_index",
+                    "columns": [
+                        "clusters"
+                    ]
+                }
+            }
+        ],
+        "meta": {
+            "nextflow": "26.04.6",
+            "nf-test": "0.9.5"
+        }
+    }
+}
+"""
+    workspace = make_workspace(tmp_path, {"tests/default.nf.test.snap": snap})
+
+    # When
+    results = SnapNormalize().apply(workspace)
+
+    # Then
+    assert results[0].outcome is Outcome.ALREADY_APPLIED
+    assert workspace.read("tests/default.nf.test.snap") == snap
