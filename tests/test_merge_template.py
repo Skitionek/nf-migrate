@@ -475,6 +475,48 @@ def test_lint_fix_keeps_the_logos_of_the_template_branch(
     ) == ("template logo")
 
 
+# The fake nf-core redraws the light logo but not this one, which is what a
+# real `lint --fix` does for a file listed under `files_unchanged`.
+CUSTOM_LOGO = "docs/images/nf-core-pipeline_logo_dark.png"
+
+
+def test_lint_fix_keeps_a_logo_the_pipeline_lists_as_files_unchanged(
+    repo: Path, migrations_dir: Path, fake_nf_core: Path
+) -> None:
+    # Given a logo the template carries too
+    git(repo, "checkout", "-q", "TEMPLATE")
+    commit_files(repo, {CUSTOM_LOGO: "template logo\n"}, "add the dark logo")
+
+    # and a pipeline that drew its own and told lint to leave it alone
+    git(repo, "checkout", "-q", "dev")
+    commit_files(
+        repo,
+        {
+            CUSTOM_LOGO: "pipeline logo\n",
+            ".nf-core.yml": (
+                "nf_core_version: 3.2.1\n"
+                "lint:\n"
+                "  files_unchanged:\n"
+                f"    - {CUSTOM_LOGO}\n"
+            ),
+        },
+        "draw our own dark logo",
+    )
+
+    # When the template is applied with the lint fixes
+    result = merge_template(
+        repo, "dev", "TEMPLATE", migrations_dir, lint_fix=True
+    )
+
+    # Then the pipeline's logo survives: lint never redrew it, so there is
+    # nothing to put back and the template's copy would undo a deliberate
+    # change
+    assert result.commit is not None
+    assert git(repo, "show", f"{result.commit}:{CUSTOM_LOGO}") == (
+        "pipeline logo"
+    )
+
+
 @pytest.fixture
 def fake_nextflow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A `nextflow` on PATH that logs its call and fails with the message in
