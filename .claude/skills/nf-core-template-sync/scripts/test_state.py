@@ -221,6 +221,27 @@ def test_concurrent_agents_get_exactly_one_claim(tmp_path: Path) -> None:
     assert len(list((tmp_path / "claims").glob("*.claim"))) == 1
 
 
+def test_second_claim_attempt_fails_with_nonzero_exit(tmp_path: Path) -> None:
+    # Given a claim already held for a PR
+    bash('nf_claim "nf-core/rnaseq#1980" >/dev/null', env_dir=tmp_path)
+
+    # When a second agent tries to claim the same PR
+    result = subprocess.run(
+        ["bash", "-c", f'source "{STATE_LIB}"\nnf_claim "nf-core/rnaseq#1980"'],
+        capture_output=True,
+        text=True,
+        env={
+            "PATH": "/usr/bin:/bin:/usr/local/bin",
+            "HOME": str(Path.home()),
+            "NF_TEMPLATE_SYNC_STATE_DIR": str(tmp_path),
+        },
+    )
+
+    # Then it fails — fix-template-pr.sh maps this to exit 4 (held-claim),
+    # not exit 2 (infrastructure error)
+    assert result.returncode != 0
+
+
 # migration
 
 
