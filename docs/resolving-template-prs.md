@@ -134,6 +134,14 @@ sync branch head is not an ancestor of `dev`.
   default to `null`.
 - On the migration PR the `download` and `Check PRs` checks fail whatever the
   migration holds, because its base is the sync branch and not `dev`.
+- The PR diff is the sync branch's tree against the migrated tree, so it
+  contains everything that makes the pipeline differ from the bare template,
+  not just the template update. It stays small for a pipeline close to the
+  template (32 files on bamtofastq) and grows with divergence (300+ on
+  oncoanalyser, where the maintainer expected under 50 and closed it). Basing
+  the PR on `dev` would show the template update alone, but it would bypass
+  the sync PR and so never close it. Unresolved; say which it is when asking
+  for a review.
 - A sync PR left open while `dev` moves on goes stale fast, and a stale one
   cannot be rebased onto `dev`: its parents are template commits for an older
   release, so replaying them onto a tree already at the new version conflicts

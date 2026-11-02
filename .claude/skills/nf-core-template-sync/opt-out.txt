@@ -1,0 +1,16 @@
+# Pipelines that asked not to receive nf-migrate PRs.
+#
+# One `owner/repo` per line. `#` starts a comment. Record who asked, when, and
+# why, so it is clear later whether the reason still holds.
+#
+# This is a courtesy list, not a security boundary: `list-open-prs.sh` hides
+# these repos and `fix-template-pr.sh` refuses them (exit 3), but nothing stops
+# a deliberate push.
+
+# scwatts, 2026-10-28, closing oncoanalyser#349 and #350: the stacked PRs
+# showed 300+ changed files where under 50 were expected, and the merge PR put
+# 1000+ dev commits into the template source branch. Prefers merging the
+# template by hand for now, and said he would look at nf-migrate again later.
+# The merge PR is gone since the single-PR change, but the large file count is
+# not fixed by it — see the note in docs/resolving-template-prs.md.
+nf-core/oncoanalyser
