@@ -14,6 +14,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+import yaml
+
 from nf_migrate.compile_check import CompileCheck, run_compile_check
 from nf_migrate.detect import Detection, detect_version
 from nf_migrate.migrations import MigrationError, load_migrations
@@ -249,9 +251,40 @@ def _restore_template_render(worktree: Path, head_sha: str) -> None:
         _git(worktree, "checkout", head_sha, "--", *rewritten)
 
 
+def _files_unchanged(worktree: Path) -> set[str]:
+    """The paths the pipeline has told nf-core lint to leave alone.
+
+    A pipeline that customises a template file lists it under
+    `lint.files_unchanged` in its `.nf-core.yml`. An unreadable or
+    unexpectedly shaped file is treated as listing nothing: a malformed
+    `.nf-core.yml` is the linter's problem to report, not a reason to abandon
+    the merge.
+    """
+    nf_core_yml = worktree / NF_CORE_YML
+    if not nf_core_yml.is_file():
+        return set()
+    try:
+        config = yaml.safe_load(nf_core_yml.read_text())
+    except yaml.YAMLError:
+        return set()
+    if not isinstance(config, dict):
+        return set()
+    lint = config.get("lint")
+    if not isinstance(lint, dict):
+        return set()
+    entries = lint.get("files_unchanged")
+    if not isinstance(entries, list):
+        return set()
+    return {entry for entry in entries if isinstance(entry, str)}
+
+
 def _restore_template_logos(worktree: Path, head_sha: str) -> None:
     # nf-core redraws the logos locally, and CI's lint then reports them as
     # not matching the template, whose branch holds the ones it expects.
+    # A logo the pipeline lists under `files_unchanged` is left alone: lint
+    # honours that list and never redrew it, so there is nothing to put back
+    # and the template's copy would undo a deliberate change.
+    excluded = _files_unchanged(worktree)
     template_files = _git(
         worktree, "ls-tree", "-r", "--name-only", head_sha
     ).splitlines()
@@ -259,6 +292,7 @@ def _restore_template_logos(worktree: Path, head_sha: str) -> None:
         path
         for path in template_files
         if path.endswith(("_logo_light.png", "_logo_dark.png"))
+        and path not in excluded
     ]
     if logos:
         _git(worktree, "checkout", head_sha, "--", *logos)

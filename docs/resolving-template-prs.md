@@ -73,17 +73,21 @@ migration_sha=$(nf-migrate merge-template --repo . --allow-conflicts --lint-fix 
 Push that commit as it stands. `merge-template` builds it with both
 `origin/dev` and `pr<n>` as parents, which is what makes a single PR work:
 
-- the sync branch is an ancestor, so the PR diff is the migration alone and
-  not "vanilla template vs the whole pipeline";
-- `dev` is an ancestor, so merging the branch into `dev` later takes the
+- `dev` is an ancestor, so GitHub resolves the PR's merge base to the `dev`
+  commit the migration merged, and the diff is the migration alone rather
+  than "vanilla template vs the whole pipeline";
+- `dev` being an ancestor also makes the later merge into `dev` take the
   migrated tree whole instead of fighting every pipeline customisation;
-- the `@nf-core-bot` commit stays in the history, so GitHub closes the
-  original sync PR when this lands.
+- the sync branch is an ancestor, so the `@nf-core-bot` commit stays in the
+  history and GitHub closes the original sync PR when this lands.
 
-Re-parenting the tree onto a separate "merge `dev`" commit throws the second
-and third away, which is why that commit then has to be restored as an extra
-PR that shows no change at all. Pushing `migration_sha` unchanged keeps all
-three and skips the round trip.
+Re-parenting the tree onto a separate "merge `dev`" commit reaches the same
+place by a longer road. That commit is what puts `dev` back in the ancestry,
+so it is load-bearing rather than cosmetic: its own diff is empty, but
+without it the migration PR would show the whole pipeline. It is needed only
+because the re-parenting dropped the parents `merge-template` had already
+set. Pushing `migration_sha` unchanged keeps all three properties and skips
+the extra PR.
 
 In zsh write `${sha}:refs/heads/x`: `$sha:refs` is read as a modifier. Use a
 new branch name and never force-push.
@@ -102,7 +106,8 @@ It has to land as a regular merge:
 [nf-core's docs](https://nf-co.re/docs/tutorials/sync/merging_automated_prs)
 say *"use a regular merge and do not squash template update PRs"*. Squashing
 or rebasing rewrites the bot's commit hash, and the original sync PR then
-never closes.
+never closes — `pathogenepidemiology` #60 was squash-merged, which is why its
+sync branch head is not an ancestor of `dev`.
 
 ## Gotchas
 
@@ -137,6 +142,10 @@ never closes.
   the PR on `dev` would show the template update alone, but it would bypass
   the sync PR and so never close it. Unresolved; say which it is when asking
   for a review.
+- A sync PR left open while `dev` moves on goes stale fast, and a stale one
+  cannot be rebased onto `dev`: its parents are template commits for an older
+  release, so replaying them onto a tree already at the new version conflicts
+  on the first one. Re-run `merge-template` against current `dev` instead.
 - Docker nf-test failures can be pre-existing. Compare with the pipeline's
   `patch` or `dev` runs before chasing them.
 
