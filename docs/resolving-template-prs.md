@@ -56,46 +56,58 @@ because CI lints with that release, and so needs `uv`. It also puts back the
 logo PNGs of the template branch, because `lint --fix` redraws them and CI
 then reports a mismatch.
 
-## Open two stacked draft PRs
+## Open one draft PR
 
-Do not push to the bot's template branch. PR 1 only records the merge of
-`dev` into the template branch, with the template's tree unchanged. PR 2
-holds the migration and is reviewed on top of PR 1.
+The [Action](../action.yml) needs no PR at all: it pushes the migration
+commit straight onto the bot's sync branch, which is a fast-forward because
+that branch is one of the commit's parents. The bot's own PR into `dev` then
+carries the resolution.
 
-```bash
-template_head=$(git rev-parse pr<n>)
-```
-
-```bash
-merge_sha=$(git commit-tree "${template_head}^{tree}" -p "$template_head" -p origin/dev -m "Merge dev into TEMPLATE")
-```
+The manual route cannot do that — the sync branch lives in a repo you do not
+own — so it proposes the same commit as a PR *into* that branch.
 
 ```bash
 migration_sha=$(nf-migrate merge-template --repo . --allow-conflicts --lint-fix origin/dev pr<n>)
 ```
 
-The migration commit descends from `dev` and the template branch, not from
-`merge_sha`. Record its tree on top of PR 1, so PR 2 shows only the
-migration:
+Push that commit as it stands. `merge-template` builds it with both
+`origin/dev` and `pr<n>` as parents, which is what makes a single PR work:
+
+- `dev` is an ancestor, so GitHub resolves the PR's merge base to the `dev`
+  commit the migration merged, and the diff is the migration alone rather
+  than "vanilla template vs the whole pipeline";
+- `dev` being an ancestor also makes the later merge into `dev` take the
+  migrated tree whole instead of fighting every pipeline customisation;
+- the sync branch is an ancestor, so the `@nf-core-bot` commit stays in the
+  history and GitHub closes the original sync PR when this lands.
+
+Re-parenting the tree onto a separate "merge `dev`" commit reaches the same
+place by a longer road. That commit is what puts `dev` back in the ancestry,
+so it is load-bearing rather than cosmetic: its own diff is empty, but
+without it the migration PR would show the whole pipeline. It is needed only
+because the re-parenting dropped the parents `merge-template` had already
+set. Pushing `migration_sha` unchanged keeps all three properties and skips
+the extra PR.
+
+In zsh write `${sha}:refs/heads/x`: `$sha:refs` is read as a modifier. Use a
+new branch name and never force-push.
 
 ```bash
-stacked_sha=$(git commit-tree "${migration_sha}^{tree}" -p "$merge_sha" -m "feat: apply template with nf-migrate")
+git push origin "${migration_sha}:refs/heads/template-migration-<n>"
 ```
 
-In zsh write `${sha}:refs/heads/x`: `$sha:refs` is read as a modifier. Use
-new branch names and never force-push.
+The PR is `template-migration-<n>` with the bot's sync branch as its base —
+never `TEMPLATE`, which
+[must hold only vanilla template code](https://nf-co.re/docs/guidelines/pipelines/requirements/git_branches),
+and never `dev`, which would bypass the sync PR. Create it with
+`gh pr create --draft`.
 
-```bash
-git push origin "${merge_sha}:refs/heads/template-merge-<n>"
-```
-
-```bash
-git push origin "${stacked_sha}:refs/heads/template-migration-<n>"
-```
-
-PR 1 is `template-merge-<n>` with the template branch as its base. PR 2 is
-`template-migration-<n>` with `template-merge-<n>` as its base. Create both
-with `gh pr create --draft`.
+It has to land as a regular merge:
+[nf-core's docs](https://nf-co.re/docs/tutorials/sync/merging_automated_prs)
+say *"use a regular merge and do not squash template update PRs"*. Squashing
+or rebasing rewrites the bot's commit hash, and the original sync PR then
+never closes — `pathogenepidemiology` #60 was squash-merged, which is why its
+sync branch head is not an ancestor of `dev`.
 
 ## Gotchas
 
@@ -120,8 +132,12 @@ with `gh pr create --draft`.
 - A newer nf-schema can reject params `dev` set before, such as `""` for a
   `file-path`. `--compile-check` previews the test profile to find it; set the
   default to `null`.
-- On the stacked PRs the `download` and `Check PRs` checks fail whatever the
-  migration holds, because their base is not `dev`. They also fail on PR 1.
+- On the migration PR the `download` and `Check PRs` checks fail whatever the
+  migration holds, because its base is the sync branch and not `dev`.
+- A sync PR left open while `dev` moves on goes stale fast, and a stale one
+  cannot be rebased onto `dev`: its parents are template commits for an older
+  release, so replaying them onto a tree already at the new version conflicts
+  on the first one. Re-run `merge-template` against current `dev` instead.
 - Docker nf-test failures can be pre-existing. Compare with the pipeline's
   `patch` or `dev` runs before chasing them.
 
