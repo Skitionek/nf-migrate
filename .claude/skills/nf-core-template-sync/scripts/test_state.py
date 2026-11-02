@@ -333,3 +333,52 @@ def test_migrating_a_whole_file_writes_one_record_per_attempt(
         "nf-core/rnaseq#1980",
         "nf-core/circdna#98",
     }
+
+
+# patch-migration-pr.sh guards
+
+
+PATCH_SCRIPT = SCRIPTS / "patch-migration-pr.sh"
+
+
+def run_patch_script(
+    repo: str,
+    pr: str,
+    env_dir: Path,
+) -> subprocess.CompletedProcess:
+    """Run patch-migration-pr.sh with an overridden state dir."""
+    env = {
+        "PATH": "/usr/bin:/bin:/usr/local/bin",
+        "HOME": str(Path.home()),
+        "NF_TEMPLATE_SYNC_STATE_DIR": str(env_dir),
+    }
+    return subprocess.run(
+        ["bash", str(PATCH_SCRIPT), repo, pr],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+
+def test_patch_script_exits_3_for_an_opted_out_repo(tmp_path: Path) -> None:
+    # Given a repo that is in the shipped opt-out list
+    # When the patch script is called for that repo
+    result = run_patch_script("nf-core/oncoanalyser", "42", tmp_path)
+
+    # Then it exits 3 before cloning or creating a claim
+    assert result.returncode == 3
+    assert not (tmp_path / "claims").exists()
+
+
+def test_patch_script_exits_2_when_claim_already_held(tmp_path: Path) -> None:
+    # Given an existing claim file for the same repo and PR
+    claim_dir = tmp_path / "claims"
+    claim_dir.mkdir()
+    (claim_dir / "nf-core_rnaseq_1980.claim").touch()
+
+    # When the patch script is called for that same repo and PR
+    result = run_patch_script("nf-core/rnaseq", "1980", tmp_path)
+
+    # Then it exits 2 without modifying the claim directory
+    assert result.returncode == 2
+    assert len(list(claim_dir.glob("*.claim"))) == 1
