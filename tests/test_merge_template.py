@@ -385,6 +385,30 @@ def test_lint_fix_without_nf_core_installed_is_an_error(
         merge_template(repo, "dev", "TEMPLATE", migrations_dir, lint_fix=True)
 
 
+def test_lint_fix_uvx_install_failure_is_an_error(
+    repo: Path,
+    migrations_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given a uvx that is present but fails to install nf-core (no stdout,
+    # stderr carries the installation error, exit 1)
+    bin_directory = tmp_path / "bin"
+    bin_directory.mkdir()
+    fake_uvx = bin_directory / "uvx"
+    fake_uvx.write_text(
+        "#!/bin/sh\n"
+        "echo \"error: package 'nf-core' failed to install\" >&2\n"
+        "exit 1\n"
+    )
+    fake_uvx.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_directory}:/usr/bin:/bin")
+
+    # When / Then
+    with pytest.raises(MigrationError, match="failed to run"):
+        merge_template(repo, "dev", "TEMPLATE", migrations_dir, lint_fix=True)
+
+
 def test_cli_lint_fix_flag_prints_the_last_commit(
     repo: Path, migrations_dir: Path, fake_nf_core: Path, capsys
 ) -> None:
