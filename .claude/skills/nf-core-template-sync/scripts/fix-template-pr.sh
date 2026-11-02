@@ -2,7 +2,7 @@
 # Reproduce and fix one nf-core template sync PR with nf-migrate.
 #
 # Usage: fix-template-pr.sh <org/repo> <pr-number>
-# Exit: 0=success (no conflicts, PR opened), 1=conflicts remain, 2=error
+# Exit: 0=success (no conflicts, PR opened), 1=conflicts remain, 2=error, 4=held-claim
 # Stdout: the new PR URL on success
 # Stderr: progress messages
 set -euo pipefail
@@ -33,11 +33,16 @@ fi
 # authority across machines; this only serialises the local batch.
 CLAIM=$(nf_claim "$REPO#$PR") || {
     err "another agent holds the claim for $REPO#$PR; skipping"
-    exit 2
+    exit 4
 }
 
+# Install the trap immediately so a failure between here and mktemp does not
+# strand the claim file. WORK_DIR starts empty; the trap only removes it once
+# mktemp has assigned it.
+WORK_DIR=""
+trap 'rm -f "$CLAIM"; [ -n "$WORK_DIR" ] && rm -rf "$WORK_DIR"' EXIT
+
 WORK_DIR=$(mktemp -d)
-trap 'rm -f "$CLAIM"; rm -rf "$WORK_DIR"' EXIT
 
 err "=== Cloning $REPO ==="
 git clone --filter=blob:none "https://github.com/$REPO.git" "$WORK_DIR/pipeline"
