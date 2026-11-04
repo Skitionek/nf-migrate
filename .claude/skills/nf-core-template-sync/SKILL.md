@@ -123,7 +123,9 @@ it is pushed as it stands — no separate "merge `dev`" PR. See
 GitHub close the sync PR.
 
 It exits 0 on success, 1 on remaining conflicts, 2 on infrastructure errors,
-and 3 when the pipeline opted out. stdout: the new PR URL. stderr: progress.
+3 when the pipeline opted out, and 4 when another agent already holds the
+claim for this PR (treat as "skip, not a failure"). stdout: the new PR URL.
+stderr: progress.
 Any unresolved change in the report (`- :x:` line, whatever the reason) counts
 as a conflict and exits 1.
 
