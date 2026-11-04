@@ -96,7 +96,8 @@ class YamlSet:
             message = f"{_render_key(key)} is not a one-line value"
             return OperationResult(path, Outcome.CONFLICT, message, change)
         current = node.value
-        if current == _scalar_value(value):
+        new_value = _scalar_value(value)
+        if current == new_value:
             return OperationResult(path, Outcome.ALREADY_APPLIED, "", change)
         if old is None:
             message = "the pipeline sets its own value"
@@ -104,7 +105,6 @@ class YamlSet:
                 path, Outcome.ALREADY_APPLIED, message, change
             )
         is_template_value = current == _scalar_value(old)
-        new_value = _scalar_value(value)
         is_bump = bool(VERSION_LIKE.match(current)) and bool(
             VERSION_LIKE.match(new_value)
         )
@@ -304,13 +304,16 @@ def _insert(
     if after is None:
         position = first_key.start_mark.index
         # A first key on a "- " line: the new key goes on the next line.
-        if content[_line_start(content, position) : position].strip() == "-":
-            end = _line_end(content, parent.value[0][1].end_mark.index)
+        is_dash_key = (
+            content[_line_start(content, position) : position].strip() == "-"
+        )
+        if is_dash_key:
             if not isinstance(parent.value[0][1], yaml.ScalarNode):
                 return None
-            return content[:end] + line + content[end:]
-        start = _line_start(content, position)
-        return content[:start] + line + content[start:]
+            insert_at = _line_end(content, parent.value[0][1].end_mark.index)
+        else:
+            insert_at = _line_start(content, position)
+        return content[:insert_at] + line + content[insert_at:]
 
     for key_node, value_node in parent.value:
         if isinstance(key_node, yaml.ScalarNode) and key_node.value == after:
