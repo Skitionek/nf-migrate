@@ -337,7 +337,7 @@ class Replace:
                 start, end = old_spans[0]
                 workspace.write(path, content[:start] + new + content[end:])
                 return OperationResult(path, Outcome.APPLIED, "", change)
-            if len(old_spans) > 1:
+            elif len(old_spans) > 1:
                 message = f"old text found {len(old_spans)} times"
                 return OperationResult(path, Outcome.CONFLICT, message, change)
 

@@ -233,6 +233,8 @@ def _operations_for_change(
 
     operations: list[str] = []
     is_yaml = change.path.endswith((".yml", ".yaml"))
+    is_github = change.path.startswith(".github/")
+    old_text_has_note = TODO_NOTE in old_text
     # The template file as the blocks so far leave it.
     current_text = old_text
     for block in diff_blocks(old_text, new_text):
@@ -272,7 +274,7 @@ def _operations_for_change(
                 block.context_after, variables
             )
         # Pipelines copy CI steps; a bump of one line applies to every copy.
-        if change.path.startswith(".github/") and not block.has_own_context:
+        if is_github and not block.has_own_context:
             context["every"] = True
         added_lines = set(new_block.splitlines()) - set(old_block.splitlines())
         # Only for boilerplate (prose, or nothing but comments), and only
@@ -282,7 +284,7 @@ def _operations_for_change(
         is_boilerplate = change.path.endswith(".md") or all(
             _is_comment(line) for line in added_lines if line.strip()
         )
-        if adds_note and is_boilerplate and TODO_NOTE in old_text:
+        if adds_note and is_boilerplate and old_text_has_note:
             context["requires"] = TODO_NOTE
         replace = _call("Replace", path, old=old, new=new, **context)
         bump = _version_bump(old, new)
@@ -606,7 +608,7 @@ def _split_deletion(
             paragraphs
             and line.strip()
             and not paragraphs[-1][-1].strip()
-            and any(_has_content(item) for item in paragraphs[-1])
+            and any(_has_letters(item) for item in paragraphs[-1])
             and not _is_heading(paragraphs[-1])
         )
         if not paragraphs or starts_paragraph:
@@ -618,7 +620,7 @@ def _split_deletion(
     position = old_start
     pending: list[str] = []
     for paragraph in paragraphs:
-        pending = pending + paragraph
+        pending.extend(paragraph)
         if _is_removable(
             pending, position, old_lines, new_lines, new_start, new_text
         ):
@@ -638,7 +640,7 @@ def _split_deletion(
             return None
         texts.append("".join(merged))
     if not texts or not all(
-        any(_has_content(line) for line in text.splitlines()) for text in texts
+        any(_has_letters(line) for line in text.splitlines()) for text in texts
     ):
         return None
     return texts
@@ -666,7 +668,7 @@ def _is_heading(paragraph: list[str]) -> bool:
     )
 
 
-def _has_content(line: str) -> bool:
+def _has_letters(line: str) -> bool:
     return sum(character.isalnum() for character in line) >= 3
 
 
