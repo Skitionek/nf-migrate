@@ -175,6 +175,16 @@ class Operation(Protocol):
     def apply(self, workspace: Workspace) -> OperationResult: ...
 
 
+@dataclass(frozen=True)
+class _ApplyContext:
+    """File-write context shared by _place and _place_between."""
+
+    workspace: Workspace
+    path: str
+    content: str
+    change: str
+
+
 @dataclass(frozen=True, slots=True)
 class Replace:
     """Replace one exact block of text, usually a template diff hunk.
@@ -215,16 +225,8 @@ class Replace:
                 path, Outcome.ALREADY_APPLIED, message, change
             )
 
-        result = self._place(
-            workspace,
-            path,
-            content,
-            old,
-            new,
-            context_before,
-            context_after,
-            change,
-        )
+        ctx = _ApplyContext(workspace, path, content, change)
+        result = self._place(ctx, old, new, context_before, context_after)
         # Maintainers delete the template's TODO notes once they act on
         # them, so try again without those lines.
         if result is None and TODO_NOTE in old:
@@ -232,27 +234,21 @@ class Replace:
             new_without_notes = without_todo_notes(new)
             if any(line.strip() for line in old_without_notes.splitlines()):
                 result = self._place(
-                    workspace,
-                    path,
-                    content,
+                    ctx,
                     old_without_notes,
                     new_without_notes,
                     context_before,
                     context_after,
-                    change,
                 )
             elif PLACEHOLDER_PROSE not in new_without_notes:
                 # Nothing but notes: put the new text where they were.
                 # Placeholder prose ("a pipeline that ...") replacing a note
                 # is boilerplate still, which the pipeline has replaced.
                 result = self._place_between(
-                    workspace,
-                    path,
-                    content,
+                    ctx,
                     without_todo_notes(context_before),
                     new_without_notes,
                     without_todo_notes(context_after),
-                    change,
                 )
         if result is not None:
             return result
@@ -261,13 +257,10 @@ class Replace:
 
     def _place_between(
         self,
-        workspace: Workspace,
-        path: str,
-        content: str,
+        ctx: _ApplyContext,
         before: str,
         new: str,
         after: str,
-        change: str,
     ) -> OperationResult | None:
         """Insert new between the context lines, trying both, then one."""
         anchors = [(before, after)]
@@ -280,14 +273,7 @@ class Replace:
             if not any(_has_letters(line) for line in anchor.splitlines()):
                 continue
             result = self._place(
-                workspace,
-                path,
-                content,
-                anchor,
-                anchor_before + new + anchor_after,
-                "",
-                "",
-                change,
+                ctx, anchor, anchor_before + new + anchor_after, "", ""
             )
             if result is not None and result.outcome is not Outcome.CONFLICT:
                 return result
@@ -295,16 +281,14 @@ class Replace:
 
     def _place(
         self,
-        workspace: Workspace,
-        path: str,
-        content: str,
+        ctx: _ApplyContext,
         old: str,
         new: str,
         context_before: str,
         context_after: str,
-        change: str,
     ) -> OperationResult | None:
         """Apply old -> new to content; None when old is nowhere."""
+        path, content, change = ctx.path, ctx.content, ctx.change
         # Pipelines often re-align assignments or trim trailing spaces, so
         # when the exact text is nowhere, compare lines without that.
         for find_spans in (find_exact_spans, find_realigned_spans):
@@ -319,13 +303,14 @@ class Replace:
                 if not _is_inside_span(span, new_spans)
             ]
             if not old_spans and new_spans:
-                outcome = Outcome.ALREADY_APPLIED
-                return OperationResult(path, outcome, "", change)
+                return OperationResult(
+                    path, Outcome.ALREADY_APPLIED, "", change
+                )
             if len(old_spans) > 1 and self.every:
                 updated = content
                 for start, end in reversed(old_spans):
                     updated = updated[:start] + new + updated[end:]
-                workspace.write(path, updated)
+                ctx.workspace.write(path, updated)
                 return OperationResult(path, Outcome.APPLIED, "", change)
             if len(old_spans) > 1:
                 best_span = _best_span_by_context(
@@ -335,7 +320,7 @@ class Replace:
                     old_spans = [best_span]
             if len(old_spans) == 1:
                 start, end = old_spans[0]
-                workspace.write(path, content[:start] + new + content[end:])
+                ctx.workspace.write(path, content[:start] + new + content[end:])
                 return OperationResult(path, Outcome.APPLIED, "", change)
             elif len(old_spans) > 1:
                 message = f"old text found {len(old_spans)} times"
@@ -351,13 +336,15 @@ class Replace:
                 if not _is_inside_span(span, new_spans)
             ]
             if not old_matches and new_spans:
-                outcome = Outcome.ALREADY_APPLIED
-                return OperationResult(path, outcome, "", change)
+                return OperationResult(
+                    path, Outcome.ALREADY_APPLIED, "", change
+                )
             if len(old_matches) == 1:
                 (start, end), indents = old_matches[0]
                 reindented = reindent(new, indents)
-                updated = content[:start] + reindented + content[end:]
-                workspace.write(path, updated)
+                ctx.workspace.write(
+                    path, content[:start] + reindented + content[end:]
+                )
                 return OperationResult(path, Outcome.APPLIED, "", change)
         return None
 
