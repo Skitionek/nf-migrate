@@ -318,6 +318,10 @@ def fake_nf_core(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "then\n"
         '  echo "prettier formatted" > "$directory/$FAKE_NF_CORE_REFORMAT"\n'
         "fi\n"
+        # nf-core always writes lint progress to stdout; simulate that so
+        # _run_lint_fix can distinguish a running-but-failing nf-core from
+        # one that never started (startup failure produces no stdout).
+        'echo "nf-core lint progress"\n'
         # nf-core exits 1 when other lint tests still fail.
         "exit 1\n"
     )
@@ -383,6 +387,31 @@ def test_lint_fix_without_nf_core_installed_is_an_error(
     # When / Then
     with pytest.raises(MigrationError, match="nf-core"):
         merge_template(repo, "dev", "TEMPLATE", migrations_dir, lint_fix=True)
+
+
+def test_lint_fix_raises_when_nf_core_fails_to_start(
+    repo: Path,
+    migrations_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given a uvx that is on PATH but exits non-zero with no stdout (e.g.
+    # pre-3.0 nf-core failing to import on Python 3.12).
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake_uvx = bin_dir / "uvx"
+    fake_uvx.write_text(
+        "#!/bin/sh\n"
+        'echo "ModuleNotFoundError: No module named distutils" >&2\n'
+        "exit 1\n"
+    )
+    fake_uvx.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
+
+    # When / Then
+    with pytest.raises(MigrationError, match="nf-core") as exc_info:
+        merge_template(repo, "dev", "TEMPLATE", migrations_dir, lint_fix=True)
+    assert "distutils" in str(exc_info.value)
 
 
 def test_cli_lint_fix_flag_prints_the_last_commit(
