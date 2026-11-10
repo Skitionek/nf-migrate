@@ -764,6 +764,67 @@ def test_first_of_reports_the_first_conflict_when_nothing_fits(
     assert "cpus = 1" in result.suggestion
 
 
+# A FirstOf an existing-but-reordered match before the template's own
+# insertion, as nf_core_migrations/v4_2_0.py does for .gitignore: a
+# pipeline that already ignores nf-test's files in its own order needs
+# no change, since inserting the template's order would duplicate them.
+GITIGNORE_NF_TEST = FirstOf(
+    ".gitignore",
+    operations=(
+        Replace(
+            ".gitignore",
+            old=".lineage/\n.nf-test.log\n.nf-test/\n",
+            new=".lineage/\n.nf-test.log\n.nf-test/\n",
+        ),
+        Replace(
+            ".gitignore",
+            old=".lineage/\n",
+            new=".lineage/\n.nf-test/\n.nf-test.log\n",
+            context_before="*.pyc\nnull/\n",
+        ),
+    ),
+)
+
+
+def test_first_of_skips_a_reordered_match_instead_of_duplicating_it(
+    tmp_path: Path,
+) -> None:
+    # Given a pipeline that already ignores nf-test's files, in its own
+    # order, below the line the template would insert after
+    workspace = make_workspace(
+        tmp_path,
+        {".gitignore": "*.pyc\nnull/\n.lineage/\n.nf-test.log\n.nf-test/\n"},
+    )
+
+    # When
+    result = GITIGNORE_NF_TEST.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.ALREADY_APPLIED
+    assert (
+        workspace.read(".gitignore")
+        == "*.pyc\nnull/\n.lineage/\n.nf-test.log\n.nf-test/\n"
+    )
+
+
+def test_first_of_still_inserts_when_the_pipeline_has_neither_line(
+    tmp_path: Path,
+) -> None:
+    # Given a pipeline without either nf-test gitignore line yet
+    workspace = make_workspace(
+        tmp_path, {".gitignore": "*.pyc\nnull/\n.lineage/\n"}
+    )
+
+    # When
+    result = GITIGNORE_NF_TEST.apply(workspace)
+
+    # Then
+    assert result.outcome is Outcome.APPLIED
+    assert workspace.read(".gitignore") == (
+        "*.pyc\nnull/\n.lineage/\n.nf-test/\n.nf-test.log\n"
+    )
+
+
 # ReplaceFile
 DSL2_MAIN = ReplaceFile(
     "main.nf",

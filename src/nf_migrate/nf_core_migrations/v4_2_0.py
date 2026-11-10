@@ -577,6 +577,25 @@ jobs:
     ),
         ),
     ),
+    FirstOf(
+        '.gitignore',
+        operations=(
+    Replace(
+        # A pipeline that already ignores nf-test's files, just in a
+        # different order, needs no change: inserting the template's
+        # order here would duplicate both lines further down the file.
+        '.gitignore',
+        old="""\
+.lineage/
+.nf-test.log
+.nf-test/
+""",
+        new="""\
+.lineage/
+.nf-test.log
+.nf-test/
+""",
+    ),
     Replace(
         '.gitignore',
         old="""\
@@ -591,6 +610,8 @@ jobs:
 *.pyc
 null/
 """,
+    ),
+        ),
     ),
     CreateFile(
         '.vscode/extensions.json',
