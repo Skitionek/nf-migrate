@@ -197,6 +197,109 @@ def _generated_file_pattern(path: str) -> str | None:
     return None
 
 
+@dataclass(frozen=True)
+class _ChangeContext:
+    """Per-file values shared across all diff blocks in one change."""
+
+    path: str
+    change_path: str
+    old_text: str
+    is_yaml: bool
+    is_github: bool
+    old_text_has_note: bool
+    variables: dict[str, str]
+    version: str
+
+
+def _build_replace_context(
+    block, ctx: "_ChangeContext", old_block: str, new_block: str
+) -> dict:
+    """Context kwargs (context_before/after, every, requires) for Replace."""
+    context: dict = {}
+    if block.context_before:
+        context["context_before"] = templatize(
+            block.context_before, ctx.variables
+        )
+    if block.context_after:
+        context["context_after"] = templatize(
+            block.context_after, ctx.variables
+        )
+    # Pipelines copy CI steps; a bump of one line applies to every copy.
+    if ctx.is_github and not block.has_own_context:
+        context["every"] = True
+    added_lines = set(new_block.splitlines()) - set(old_block.splitlines())
+    # Only for boilerplate (prose, or nothing but comments), and only
+    # where the template file has such notes already, or even an
+    # untouched template would skip it.
+    adds_note = any(TODO_NOTE in line for line in added_lines)
+    is_boilerplate = ctx.change_path.endswith(".md") or all(
+        _is_comment(line) for line in added_lines if line.strip()
+    )
+    if adds_note and is_boilerplate and ctx.old_text_has_note:
+        context["requires"] = TODO_NOTE
+    return context
+
+
+def _block_operations(
+    block, text_before: str, current_text: str, ctx: "_ChangeContext"
+) -> list[str]:
+    """Operations for one diff block: unintended skip, yaml, or text ops."""
+    old_block, new_block = block.old, block.new
+
+    unintended = _unintended_change(
+        ctx.version, ctx.change_path, old_block, new_block
+    )
+    if unintended is not None:
+        return [
+            f"    # Left out: {ctx.version} added {unintended!r} to "
+            f"{ctx.change_path} by mistake."
+        ]
+
+    # Values in YAML are found by key path, whatever the lines around.
+    if ctx.is_yaml:
+        yaml_ops = yaml_changes(text_before, current_text)
+        if yaml_ops is not None:
+            return [
+                _yaml_call(ctx.path, op, ctx.variables) for op in yaml_ops
+            ]
+
+    old = templatize(old_block, ctx.variables)
+    if new_block is None:
+        return [_call("RemoveText", ctx.path, text=old)]
+
+    new = templatize(new_block, ctx.variables)
+    context = _build_replace_context(block, ctx, old_block, new_block)
+    replace = _call("Replace", ctx.path, old=old, new=new, **context)
+
+    bump = _version_bump(old, new)
+    if bump is not None:
+        prefix, old_version, new_version = bump
+        fallback = _call(
+            "BumpVersion",
+            ctx.path,
+            prefix=prefix,
+            old=old_version,
+            new=new_version,
+        )
+        return [_first_of_call(ctx.path, [replace, fallback])]
+
+    segment = _segment_change(old_block, new_block, ctx.old_text)
+    if segment is not None:
+        old_segment, new_segment = (
+            templatize(part, ctx.variables) for part in segment
+        )
+        fallback = _call(
+            "RegexReplace",
+            ctx.path,
+            pattern=_pattern_literal(old_segment),
+            replacement=new_segment.replace("\\", "\\\\"),
+            applied=_pattern_literal(new_segment),
+        )
+        return [_first_of_call(ctx.path, [replace, fallback])]
+
+    return [replace]
+
+
 def _operations_for_change(
     repo: Path,
     old_ref: str,
@@ -231,87 +334,25 @@ def _operations_for_change(
     if old_text is None or new_text is None:
         return []
 
-    operations: list[str] = []
-    is_yaml = change.path.endswith((".yml", ".yaml"))
+    ctx = _ChangeContext(
+        path=path,
+        change_path=change.path,
+        old_text=old_text,
+        is_yaml=change.path.endswith((".yml", ".yaml")),
+        is_github=change.path.startswith(".github/"),
+        old_text_has_note=TODO_NOTE in old_text,
+        variables=variables,
+        version=version,
+    )
     # The template file as the blocks so far leave it.
+    operations: list[str] = []
     current_text = old_text
     for block in diff_blocks(old_text, new_text):
-        old_block, new_block = block.old, block.new
         text_before_block = current_text
         current_text = _apply_block(current_text, block)
-        unintended = _unintended_change(
-            version, change.path, old_block, new_block
+        operations.extend(
+            _block_operations(block, text_before_block, current_text, ctx)
         )
-        if unintended is not None:
-            operations.append(
-                f"    # Left out: {version} added {unintended!r} to "
-                f"{change.path} by mistake."
-            )
-            continue
-        # Values in YAML are found by key path, whatever the lines around.
-        if is_yaml:
-            yaml_operations = yaml_changes(text_before_block, current_text)
-            if yaml_operations is not None:
-                operations.extend(
-                    _yaml_call(path, operation, variables)
-                    for operation in yaml_operations
-                )
-                continue
-        old = templatize(old_block, variables)
-        if new_block is None:
-            operations.append(_call("RemoveText", path, text=old))
-            continue
-        new = templatize(new_block, variables)
-        context = {}
-        if block.context_before:
-            context["context_before"] = templatize(
-                block.context_before, variables
-            )
-        if block.context_after:
-            context["context_after"] = templatize(
-                block.context_after, variables
-            )
-        # Pipelines copy CI steps; a bump of one line applies to every copy.
-        if change.path.startswith(".github/") and not block.has_own_context:
-            context["every"] = True
-        added_lines = set(new_block.splitlines()) - set(old_block.splitlines())
-        # Only for boilerplate (prose, or nothing but comments), and only
-        # where the template file has such notes already, or even an
-        # untouched template would skip it.
-        adds_note = any(TODO_NOTE in line for line in added_lines)
-        is_boilerplate = change.path.endswith(".md") or all(
-            _is_comment(line) for line in added_lines if line.strip()
-        )
-        if adds_note and is_boilerplate and TODO_NOTE in old_text:
-            context["requires"] = TODO_NOTE
-        replace = _call("Replace", path, old=old, new=new, **context)
-        bump = _version_bump(old, new)
-        if bump is not None:
-            prefix, old_version, new_version = bump
-            fallback = _call(
-                "BumpVersion",
-                path,
-                prefix=prefix,
-                old=old_version,
-                new=new_version,
-            )
-            operations.append(_first_of_call(path, [replace, fallback]))
-            continue
-        segment = _segment_change(old_block, new_block, old_text)
-        if segment is not None:
-            old_segment, new_segment = (
-                templatize(part, variables) for part in segment
-            )
-            fallback = _call(
-                "RegexReplace",
-                path,
-                pattern=_pattern_literal(old_segment),
-                replacement=new_segment.replace("\\", "\\\\"),
-                applied=_pattern_literal(new_segment),
-            )
-            operations.append(_first_of_call(path, [replace, fallback]))
-            continue
-        operations.append(replace)
     return operations
 
 
@@ -606,7 +647,7 @@ def _split_deletion(
             paragraphs
             and line.strip()
             and not paragraphs[-1][-1].strip()
-            and any(_has_content(item) for item in paragraphs[-1])
+            and any(_has_letters(item) for item in paragraphs[-1])
             and not _is_heading(paragraphs[-1])
         )
         if not paragraphs or starts_paragraph:
@@ -618,7 +659,7 @@ def _split_deletion(
     position = old_start
     pending: list[str] = []
     for paragraph in paragraphs:
-        pending = pending + paragraph
+        pending.extend(paragraph)
         if _is_removable(
             pending, position, old_lines, new_lines, new_start, new_text
         ):
@@ -638,7 +679,7 @@ def _split_deletion(
             return None
         texts.append("".join(merged))
     if not texts or not all(
-        any(_has_content(line) for line in text.splitlines()) for text in texts
+        any(_has_letters(line) for line in text.splitlines()) for text in texts
     ):
         return None
     return texts
@@ -666,7 +707,7 @@ def _is_heading(paragraph: list[str]) -> bool:
     )
 
 
-def _has_content(line: str) -> bool:
+def _has_letters(line: str) -> bool:
     return sum(character.isalnum() for character in line) >= 3
 
 
