@@ -159,11 +159,12 @@ def first_of(path: str, sources: list[str], comment: str) -> str:
     lines = [f"    # {line}" for line in comment.splitlines()]
     lines += ["    FirstOf(", f"        {path!r},", "        operations=("]
     for source in sources:
-        body = "\n".join(
-            line
-            for line in source.splitlines()
-            if not line.lstrip().startswith("#")
-        )
+        body_lines = source.splitlines()
+        # Only the comment above the operation goes: a line starting with #
+        # inside a triple-quoted template text belongs to that text.
+        while body_lines and body_lines[0].lstrip().startswith("#"):
+            body_lines.pop(0)
+        body = "\n".join(body_lines)
         # Not re-indented: that would change template text inside
         # triple-quoted strings.
         lines.append(body)
