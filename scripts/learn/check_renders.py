@@ -70,12 +70,7 @@ def check(history: History, migration) -> list[str]:
         # Left out on purpose: autogenerate.UNINTENDED_CHANGES.
         if (new, path) == ("2.3.1", "CHANGELOG.md"):
             continue
-        # Left out on purpose: the PR head checkout in the template's
-        # pull_request_target workflow (edits/v3_0_2.py, edits/v3_3_0.py).
-        if (new, path) in {
-            ("3.0.2", ".github/workflows/template_version_comment.yml"),
-            ("3.3.0", ".github/workflows/template-version-comment.yml"),
-        } or (new, path) in HAND_EDITED_FILES:
+        if (new, path) in HAND_EDITED_FILES:
             continue
         if expected != actual:
             problems.append(f"{new} on v{old}: {path} differs from v{new}")

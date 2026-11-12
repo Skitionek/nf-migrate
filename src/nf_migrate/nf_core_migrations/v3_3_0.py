@@ -763,65 +763,6 @@ jobs:
     ),
         ),
     ),
-    # Hand-edited: the template's workflow checks out
-    # `ref: ${{ github.event.pull_request.head.sha }}`. It runs on
-    # pull_request_target, with the base repository's secrets and a write token
-    # even for fork PRs, so the fork's .nf-core.yml (whose nf_core_version goes
-    # into `pip install`) would be read in a privileged job. It is created
-    # without that ref, reading the base branch; a pipeline that already has the
-    # template's file counts as done.
-    FirstOf(
-        '.github/workflows/template-version-comment.yml',
-        operations=(
-    CreateFile(
-        '.github/workflows/template-version-comment.yml',
-        content="""\
-name: nf-core template version comment
-# This workflow is triggered on PRs to check if the pipeline template version matches the latest nf-core version.
-# It posts a comment to the PR, even if it comes from a fork.
-
-on: pull_request_target
-
-jobs:
-  template_version:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out pipeline code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-
-      - name: Read template version from .nf-core.yml
-        uses: nichmor/minimal-read-yaml@1f7205277e25e156e1f63815781db80a6d490b8f # v0.0.2
-        id: read_yml
-        with:
-          config: ${{ github.workspace }}/.nf-core.yml
-
-      - name: Install nf-core
-        run: |
-          python -m pip install --upgrade pip
-          pip install nf-core==${{ steps.read_yml.outputs['nf_core_version'] }}
-
-      - name: Check nf-core outdated
-        id: nf_core_outdated
-        run: echo "OUTPUT=$(pip list --outdated | grep nf-core)" >> ${GITHUB_ENV}
-
-      - name: Post nf-core template version comment
-        uses: mshick/add-pr-comment@b8f338c590a895d50bcbfa6c5859251edc8952fc # v2
-        if: |
-          contains(env.OUTPUT, 'nf-core')
-        with:
-          repo-token: ${{ secrets.NF_CORE_BOT_AUTH_TOKEN }}
-          allow-repeats: false
-          message: |
-            > [!WARNING]
-            > Newer version of the nf-core template is available.
-            >
-            > Your pipeline is using an old version of the nf-core template: ${{ steps.read_yml.outputs['nf_core_version'] }}.
-            > Please update your pipeline to the latest version.
-            >
-            > For more documentation on how to update your pipeline, please see the [nf-core documentation](https://github.com/nf-core/tools?tab=readme-ov-file#sync-a-pipeline-with-the-template) and [Synchronisation documentation](https://nf-co.re/docs/contributing/sync).
-          #
-""",
-    ),
     CreateFile(
         '.github/workflows/template-version-comment.yml',
         content="""\
@@ -873,14 +814,6 @@ jobs:
           #
 """,
     ),
-        ),
-    ),
-    # Hand-edited: 3.0.2 no longer adds that ref to template_version_comment.yml
-    # (see v3_0_2.py), so a pipeline upgraded by nf-migrate has the file without
-    # it, and one from the template has it. Either is deleted if untouched.
-    FirstOf(
-        '.github/workflows/template_version_comment.yml',
-        operations=(
     DeleteFile(
         '.github/workflows/template_version_comment.yml',
         expected_content="""\
@@ -931,57 +864,6 @@ jobs:
             > For more documentation on how to update your pipeline, please see the [nf-core documentation](https://github.com/nf-core/tools?tab=readme-ov-file#sync-a-pipeline-with-the-template) and [Synchronisation documentation](https://nf-co.re/docs/contributing/sync).
           #
 """,
-    ),
-    DeleteFile(
-        '.github/workflows/template_version_comment.yml',
-        expected_content="""\
-name: nf-core template version comment
-# This workflow is triggered on PRs to check if the pipeline template version matches the latest nf-core version.
-# It posts a comment to the PR, even if it comes from a fork.
-
-on: pull_request_target
-
-jobs:
-  template_version:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out pipeline code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-
-      - name: Read template version from .nf-core.yml
-        uses: nichmor/minimal-read-yaml@v0.0.2
-        id: read_yml
-        with:
-          config: ${{ github.workspace }}/.nf-core.yml
-
-      - name: Install nf-core
-        run: |
-          python -m pip install --upgrade pip
-          pip install nf-core==${{ steps.read_yml.outputs['nf_core_version'] }}
-
-      - name: Check nf-core outdated
-        id: nf_core_outdated
-        run: echo "OUTPUT=$(pip list --outdated | grep nf-core)" >> ${GITHUB_ENV}
-
-      - name: Post nf-core template version comment
-        uses: mshick/add-pr-comment@b8f338c590a895d50bcbfa6c5859251edc8952fc # v2
-        if: |
-          contains(env.OUTPUT, 'nf-core')
-        with:
-          repo-token: ${{ secrets.NF_CORE_BOT_AUTH_TOKEN }}
-          allow-repeats: false
-          message: |
-            > [!WARNING]
-            > Newer version of the nf-core template is available.
-            >
-            > Your pipeline is using an old version of the nf-core template: ${{ steps.read_yml.outputs['nf_core_version'] }}.
-            > Please update your pipeline to the latest version.
-            >
-            > For more documentation on how to update your pipeline, please see the [nf-core documentation](https://github.com/nf-core/tools?tab=readme-ov-file#sync-a-pipeline-with-the-template) and [Synchronisation documentation](https://nf-co.re/docs/contributing/sync).
-          #
-""",
-    ),
-        ),
     ),
     Replace(
         '.pre-commit-config.yaml',

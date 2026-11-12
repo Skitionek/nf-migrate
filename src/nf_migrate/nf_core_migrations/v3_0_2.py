@@ -197,12 +197,27 @@ operations = [
 """,
         every=True,
     ),
-    # Hand-edited: 3.0.2 made the checkout of template_version_comment.yml take
-    # `ref: ${{ github.event.pull_request.head.sha }}`. That workflow runs on
-    # pull_request_target, with the base repository's secrets and a write
-    # token even for fork PRs, so the fork's .nf-core.yml (whose
-    # nf_core_version goes into `pip install`) would be read in a privileged
-    # job. It is left out: the workflow keeps checking out the base branch.
+    Replace(
+        '.github/workflows/template_version_comment.yml',
+        old="""\
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
+
+""",
+        new="""\
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+""",
+        context_before="""\
+    steps:
+      - name: Check out pipeline code
+""",
+        context_after="""\
+      - name: Read template version from .nf-core.yml
+        uses: pietrobolcato/action-read-yaml@1.0.0
+""",
+    ),
     YamlSet(
         '.github/workflows/template_version_comment.yml',
         key=['jobs', 'template_version', 'steps', {'id': ['read_yml'], 'name': ['Read template version from .nf-core.yml'], 'uses': ['pietrobolcato/action-read-yaml@1.0.0', 'nichmor/minimal-read-yaml@v0.0.2'], '#': 1}, 'uses'],
