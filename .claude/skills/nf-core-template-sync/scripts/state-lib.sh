@@ -47,3 +47,22 @@ nf_claim() {
     fi
     return 1
 }
+
+# Print the head branch of a template sync PR the bot opened from a branch of
+# the pipeline's own repo, or say on stderr why the PR is not one and fail.
+# The title proves nothing: anyone can give a fork's PR the sync title, and the
+# scripts push a commit built from the PR's tree. Call this before fetching it.
+# The checks are state.py's sync_pr_refusal; they match action.yml's.
+nf_sync_branch() {
+    local repo pr info
+    repo=$1
+    pr=$2
+    info=$(gh pr view "$pr" --repo "$repo" \
+        --json author,isCrossRepository,headRefName) || {
+        echo "cannot read $repo#$pr from GitHub; refusing" >&2
+        return 1
+    }
+    printf '%s' "$info" \
+        | python3 "$(dirname "${BASH_SOURCE[0]}")/state.py" \
+            check-sync-pr "$repo#$pr"
+}

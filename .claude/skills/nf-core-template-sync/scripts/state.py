@@ -91,6 +91,34 @@ def is_opted_out(repo: str) -> bool:
     return repo in opt_outs()
 
 
+# The checks action.yml makes before it pushes to a sync PR's branch. The title
+# of a PR proves nothing, since anyone can give a PR from a fork the sync
+# title, and the scripts push a commit built from the PR's tree to the pipeline.
+BOT_LOGIN = "nf-core-bot"
+SYNC_BRANCH_PREFIX = "nf-core-template-merge-"
+
+
+def sync_pr_refusal(pr: object) -> str | None:
+    """Why this PR is not a sync PR opened by the bot, or None if it is.
+
+    `pr` is the JSON of `gh pr view --json
+    author,isCrossRepository,headRefName`. A missing or unexpected field fails
+    the check; it never passes it.
+    """
+    if not isinstance(pr, dict):
+        return "unreadable PR data"
+    author = pr.get("author")
+    login = author.get("login") if isinstance(author, dict) else None
+    if login != BOT_LOGIN:
+        return f"opened by {login!r}, not {BOT_LOGIN}"
+    if pr.get("isCrossRepository") is not False:
+        return "comes from a fork"
+    head = pr.get("headRefName")
+    if not isinstance(head, str) or not head.startswith(SYNC_BRANCH_PREFIX):
+        return f"head branch {head!r} is not a {SYNC_BRANCH_PREFIX}* branch"
+    return None
+
+
 def key_slug(key: str) -> str:
     """`nf-core/rnaseq#1980` -> `nf-core_rnaseq_1980`, safe as a filename."""
     return re.sub(r"[^A-Za-z0-9._-]+", "_", key)
@@ -231,6 +259,14 @@ def main() -> int:
     )
     opted_parser.add_argument("repo", help="e.g. nf-core/oncoanalyser")
 
+    sync_parser = sub.add_parser(
+        "check-sync-pr",
+        help="read `gh pr view --json author,isCrossRepository,headRefName` "
+        "on stdin; print the head branch if it is a bot-opened sync PR, "
+        "else say why not and exit 1",
+    )
+    sync_parser.add_argument("key", help="e.g. nf-core/rnaseq#1980")
+
     migrate_parser = sub.add_parser("migrate", help="import a legacy file")
     migrate_parser.add_argument("old_file", type=Path)
     migrate_parser.add_argument("--dry-run", action="store_true")
@@ -271,6 +307,18 @@ def main() -> int:
 
     if args.command == "is-opted-out":
         return 0 if is_opted_out(args.repo) else 1
+
+    if args.command == "check-sync-pr":
+        try:
+            pr = json.load(sys.stdin)
+        except json.JSONDecodeError:
+            pr = None
+        reason = sync_pr_refusal(pr)
+        if reason:
+            print(f"refusing {args.key}: {reason}", file=sys.stderr)
+            return 1
+        print(pr["headRefName"])
+        return 0
 
     if args.command == "migrate":
         migrated, unclassified = migrate(args.old_file, dry_run=args.dry_run)

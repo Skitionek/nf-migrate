@@ -39,6 +39,11 @@ CLAIM=$(nf_claim "$REPO#$PR") || {
 WORK_DIR=$(mktemp -d)
 trap 'rm -f "$CLAIM"; rm -rf "$WORK_DIR"' EXIT
 
+# The search that finds sync PRs matches on title, which a PR from a fork can
+# copy. Refuse anything but the bot's own same-repo sync PR before fetching its
+# tree. See nf_sync_branch.
+nf_sync_branch "$REPO" "$PR" >/dev/null || exit 2
+
 err "=== Cloning $REPO ==="
 git clone --filter=blob:none "https://github.com/$REPO.git" "$WORK_DIR/pipeline"
 cd "$WORK_DIR/pipeline"

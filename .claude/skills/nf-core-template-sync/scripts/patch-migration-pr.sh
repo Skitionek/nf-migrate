@@ -39,6 +39,10 @@ CLAIM=$(nf_claim "$REPO#$SYNC_PR") || {
 WORK_DIR=$(mktemp -d)
 trap 'rm -f "$CLAIM"; rm -rf "$WORK_DIR"' EXIT
 
+# Only the bot's own same-repo sync PR may be fetched and migrated; a PR from a
+# fork can copy the sync title. See nf_sync_branch.
+nf_sync_branch "$REPO" "$SYNC_PR" >/dev/null || exit 2
+
 err "=== Cloning $REPO ==="
 git clone --filter=blob:none "https://github.com/$REPO.git" "$WORK_DIR/pipeline"
 cd "$WORK_DIR/pipeline"

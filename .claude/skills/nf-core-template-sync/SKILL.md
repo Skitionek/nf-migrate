@@ -86,6 +86,11 @@ Outputs JSON: `[{"repo": "nf-core/rnaseq", "pr": 1980, "key": "nf-core/rnaseq#19
   [`opt-out.txt`](opt-out.txt), with who asked and why. `list-open-prs.sh`
   hides them and `fix-template-pr.sh` refuses them with exit 3, before taking a
   claim. Currently `nf-core/oncoanalyser`.
+- **Only the bot's own sync PRs** — opened by `nf-core-bot` from an
+  `nf-core-template-merge-*` branch of the pipeline itself, never from a fork,
+  as `action.yml` checks. Anyone can give a PR the sync title, so
+  `list-open-prs.sh` drops any other PR, and `fix-template-pr.sh` and
+  `patch-migration-pr.sh` refuse it with exit 2 before they clone anything.
 - **Only the latest template version** — currently v4.2.1. Older sync PRs are skipped.
 - **Skip if TEMPLATE branch has fallen behind** — check `gh api repos/<owner>/<repo>/branches/TEMPLATE --jq '.commit.commit.message'` before attempting. If the message does not contain `4.2.1`, skip with `status: skipped`.
 
@@ -122,8 +127,9 @@ it is pushed as it stands — no separate "merge `dev`" PR. See
 `docs/resolving-template-prs.md` for why that keeps the diff small and lets
 GitHub close the sync PR.
 
-It exits 0 on success, 1 on remaining conflicts, 2 on infrastructure errors,
-and 3 when the pipeline opted out. stdout: the new PR URL. stderr: progress.
+It exits 0 on success, 1 on remaining conflicts, 2 on infrastructure errors
+or a PR that is not the bot's own sync PR, and 3 when the pipeline opted out.
+stdout: the new PR URL. stderr: progress.
 Any unresolved change in the report (`- :x:` line, whatever the reason) counts
 as a conflict and exits 1.
 
