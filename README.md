@@ -206,6 +206,34 @@ has to sit on 3.0.2 to 4.0.2 should delete the `ref:` line from that
 workflow, or remove the workflow, by hand. This only matters for a public
 repository that has the bot secret.
 
+## The shared PR-comment workflow trusts a fork's artifact
+
+From 4.0.3, including head, the template ships `.github/workflows/pr-comment.yml`.
+It runs on `workflow_run` with `pull-requests: write` and posts the comment
+that the producer workflows (linting, nf-test, branch protection, template
+version) describe in a `pr-comment` artifact. For a PR from a fork, the
+producer workflow is the fork's own copy, so the artifact is attacker
+controlled. The poster only checks that `pr_number.txt` is digits: it does not
+check that the number is the PR that triggered the run, and it does not check
+`header.txt` at all.
+
+A fork PR can therefore make the bot post its own Markdown on any other PR or
+issue in the repository, or replace a sticky comment that uses the same
+header (for example `lint`), and a multi-line header adds extra
+`key=value` lines to the step's `$GITHUB_OUTPUT`. This gives no access to
+secrets and runs no code, so it is low severity, but bot comments can no
+longer be trusted as CI results.
+
+nf-migrate writes this workflow as the template shipped it, so it carries the
+same behaviour, and a pipeline already on 4.0.3 or later is not changed by
+upgrading. If it matters for your repository, edit the "Read comment
+metadata" step by hand: require the `header` to match `[A-Za-z0-9_-]+`, and
+look the PR up with `gh api repos/$GITHUB_REPOSITORY/pulls/$pr_number`, failing
+unless its head repository and branch equal
+`github.event.workflow_run.head_repository.full_name` and
+`github.event.workflow_run.head_branch`. Pass those values through `env:`,
+not by interpolating them into the script.
+
 ## When nf_core_version is wrong
 
 `nf_core_version` can disagree with the files, for example after a template

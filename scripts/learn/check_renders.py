@@ -21,10 +21,6 @@ from nf_migrate.operations import Outcome  # noqa: E402
 from nf_migrate.runner import stamp_workspace  # noqa: E402
 from nf_migrate.version import NF_CORE_YML, stamp_version  # noqa: E402
 
-# Files a migration hardens beyond the template (see edits/): they differ from
-# the render on purpose, and a pipeline that has the render's text is edited.
-HAND_EDITED_FILES = {("4.0.3", ".github/workflows/pr-comment.yml")}
-
 
 def check(history: History, migration) -> list[str]:
     problems: list[str] = []
@@ -70,8 +66,6 @@ def check(history: History, migration) -> list[str]:
         # Left out on purpose: autogenerate.UNINTENDED_CHANGES.
         if (new, path) == ("2.3.1", "CHANGELOG.md"):
             continue
-        if (new, path) in HAND_EDITED_FILES:
-            continue
         if expected != actual:
             problems.append(f"{new} on v{old}: {path} differs from v{new}")
 
@@ -80,10 +74,7 @@ def check(history: History, migration) -> list[str]:
     stamp_workspace(workspace, new)
     for index, operation in enumerate(migration.operations):
         result = operation.apply(workspace)
-        hand_edited = (new, result.path) in HAND_EDITED_FILES
-        if result.outcome is Outcome.CONFLICT or (
-            result.outcome is Outcome.APPLIED and not hand_edited
-        ):
+        if result.outcome in (Outcome.APPLIED, Outcome.CONFLICT):
             problems.append(
                 f"{new} on v{new}: op {index} {result.path} "
                 f"{result.outcome.name} {result.message}"
