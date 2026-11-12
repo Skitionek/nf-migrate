@@ -181,6 +181,59 @@ Pipeline values such as the author come from `.nf-core.yml` `template:` or,
 without it, the `manifest` in `nextflow.config`. An author left empty there
 stays empty; one that is missing is an error that names the key to add.
 
+## Do not stop on nf-core/tools 3.0.2 to 4.0.2
+
+Do not leave a pipeline on an `nf_core_version` from 3.0.2 up to and
+including 4.0.2. Upgrade to 4.0.3 or later, or stay on 3.0.1 or earlier.
+`upgrade` with no target goes to head, which is safe; an explicit target in
+that range is not.
+
+The template those releases generate contains
+`.github/workflows/template_version_comment.yml` (renamed
+`template-version-comment.yml` in 3.3.0). It runs on `pull_request_target`,
+so it has the repository's secrets and a write token even for fork PRs, and
+since 3.0.2 it checks out the pull request's head with
+`ref: ${{ github.event.pull_request.head.sha }}`. The job then reads
+`nf_core_version` from the PR's own `.nf-core.yml` and puts it into
+`pip install nf-core==...`. A fork PR that sets that value to shell syntax
+runs commands in a job that holds `NF_CORE_BOT_AUTH_TOKEN`.
+
+nf-core/tools fixed this in 4.0.3, which switches the workflow to
+`pull_request` with `permissions: {}` and posts the comment from a separate
+`pr-comment.yml`. The migrations replay the template as released, so
+nf-migrate does not change that text for the affected range. A pipeline that
+has to sit on 3.0.2 to 4.0.2 should delete the `ref:` line from that
+workflow, or remove the workflow, by hand. This only matters for a public
+repository that has the bot secret.
+
+## The shared PR-comment workflow trusts a fork's artifact
+
+From 4.0.3, including head, the template ships `.github/workflows/pr-comment.yml`.
+It runs on `workflow_run` with `pull-requests: write` and posts the comment
+that the producer workflows (linting, nf-test, branch protection, template
+version) describe in a `pr-comment` artifact. For a PR from a fork, the
+producer workflow is the fork's own copy, so the artifact is attacker
+controlled. The poster only checks that `pr_number.txt` is digits: it does not
+check that the number is the PR that triggered the run, and it does not check
+`header.txt` at all.
+
+A fork PR can therefore make the bot post its own Markdown on any other PR or
+issue in the repository, or replace a sticky comment that uses the same
+header (for example `lint`), and a multi-line header adds extra
+`key=value` lines to the step's `$GITHUB_OUTPUT`. This gives no access to
+secrets and runs no code, so it is low severity, but bot comments can no
+longer be trusted as CI results.
+
+nf-migrate writes this workflow as the template shipped it, so it carries the
+same behaviour, and a pipeline already on 4.0.3 or later is not changed by
+upgrading. If it matters for your repository, edit the "Read comment
+metadata" step by hand: require the `header` to match `[A-Za-z0-9_-]+`, and
+look the PR up with `gh api repos/$GITHUB_REPOSITORY/pulls/$pr_number`, failing
+unless its head repository and branch equal
+`github.event.workflow_run.head_repository.full_name` and
+`github.event.workflow_run.head_branch`. Pass those values through `env:`,
+not by interpolating them into the script.
+
 ## When nf_core_version is wrong
 
 `nf_core_version` can disagree with the files, for example after a template

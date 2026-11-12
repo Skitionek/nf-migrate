@@ -37,6 +37,26 @@ class OperationResult:
     suggestion: str = ""
 
 
+class UnsafePathError(Exception):
+    """A path would read or write outside the pipeline directory."""
+
+
+def project_file(root: Path, path: str) -> Path:
+    """`root / path`, unless it ends up outside `root`.
+
+    The pipeline can lead a path out of its directory: `..` or a `/` in a
+    value that fills a {{placeholder}} in it, an absolute path, or a symlink
+    in the tree. All of them show once the path is resolved.
+    """
+    file_path = root / path
+    if not file_path.resolve().is_relative_to(root.resolve()):
+        raise UnsafePathError(
+            f"{path!r} leads outside {str(root)!r}; refusing to read or "
+            "write it"
+        )
+    return file_path
+
+
 class Workspace:
     """In-memory view of a pipeline directory.
 
@@ -104,8 +124,13 @@ class Workspace:
         return "".join(diff_parts)
 
     def commit(self) -> None:
+        # Check every path before writing any, so one that leads outside the
+        # pipeline stops the commit with nothing written.
+        file_paths = {
+            path: project_file(self.root, path) for path in self._pending
+        }
         for path, content in self._pending.items():
-            file_path = self.root / path
+            file_path = file_paths[path]
             if content is None:
                 file_path.unlink(missing_ok=True)
                 continue
@@ -114,7 +139,7 @@ class Workspace:
         self._pending.clear()
 
     def _read_from_disk(self, path: str) -> str | None:
-        file_path = self.root / path
+        file_path = project_file(self.root, path)
         if not file_path.is_file():
             return None
         return file_path.read_text()

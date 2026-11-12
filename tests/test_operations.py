@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from nf_migrate.operations import (
     BumpVersion,
     CreateFile,
@@ -11,6 +13,7 @@ from nf_migrate.operations import (
     Replace,
     ReplaceFile,
     SnapNormalize,
+    UnsafePathError,
     Workspace,
 )
 
@@ -966,6 +969,190 @@ def test_workspace_only_touches_disk_on_commit(tmp_path: Path) -> None:
     assert (tmp_path / "a.txt").read_text() == "after\n"
     assert not (tmp_path / "b.txt").exists()
     assert (tmp_path / "new/c.txt").read_text() == "c\n"
+
+
+# Paths that lead outside the pipeline
+@pytest.fixture
+def pipeline(tmp_path: Path) -> Path:
+    directory = tmp_path / "pipeline"
+    directory.mkdir()
+    return directory
+
+
+def test_commit_refuses_a_path_that_climbs_out_of_the_pipeline(
+    tmp_path: Path, pipeline: Path
+) -> None:
+    # Given
+    workspace = Workspace(pipeline)
+    workspace.write("../outside.txt", "x\n")
+
+    # When / Then
+    with pytest.raises(UnsafePathError, match="outside.txt"):
+        workspace.commit()
+    assert not (tmp_path / "outside.txt").exists()
+
+
+def test_commit_refuses_an_absolute_path_outside_the_pipeline(
+    tmp_path: Path, pipeline: Path
+) -> None:
+    # Given
+    outside = tmp_path / "outside.txt"
+    outside.write_text("before\n")
+    workspace = Workspace(pipeline)
+    workspace.write(str(outside), "after\n")
+
+    # When / Then
+    with pytest.raises(UnsafePathError):
+        workspace.commit()
+    assert outside.read_text() == "before\n"
+
+
+def test_commit_refuses_to_delete_outside_the_pipeline(
+    tmp_path: Path, pipeline: Path
+) -> None:
+    # Given
+    outside = tmp_path / "outside.txt"
+    outside.write_text("keep\n")
+    workspace = Workspace(pipeline)
+    workspace.delete("../outside.txt")
+
+    # When / Then
+    with pytest.raises(UnsafePathError):
+        workspace.commit()
+    assert outside.read_text() == "keep\n"
+
+
+def test_commit_writes_nothing_when_one_path_leads_outside(
+    tmp_path: Path, pipeline: Path
+) -> None:
+    # Given a good path ahead of a bad one
+    workspace = make_workspace(pipeline, {"a.txt": "before\n"})
+    workspace.write("a.txt", "after\n")
+    workspace.write("new/b.txt", "b\n")
+    workspace.write("../outside.txt", "x\n")
+
+    # When / Then
+    with pytest.raises(UnsafePathError):
+        workspace.commit()
+    assert (pipeline / "a.txt").read_text() == "before\n"
+    assert not (pipeline / "new").exists()
+    assert not (tmp_path / "outside.txt").exists()
+
+
+def test_a_template_variable_cannot_lead_a_created_file_outside(
+    tmp_path: Path, pipeline: Path
+) -> None:
+    # Given a pipeline name from .nf-core.yml that climbs out of the tree
+    workspace = Workspace(pipeline, variables={"pipeline_name": "../../x"})
+    operation = CreateFile("workflows/{{pipeline_name}}.nf", "workflow {}\n")
+
+    # When / Then
+    with pytest.raises(UnsafePathError, match="workflows"):
+        operation.apply(workspace)
+    assert not (tmp_path / "x.nf").exists()
+    assert not (pipeline / "workflows").exists()
+
+
+def test_a_template_variable_cannot_lead_an_edit_outside(
+    tmp_path: Path, pipeline: Path
+) -> None:
+    # Given a file outside the pipeline that the edit's old text matches
+    (tmp_path / "x.nf").write_text("a\n")
+    workspace = Workspace(pipeline, variables={"pipeline_name": "../x"})
+    operation = Replace("{{pipeline_name}}.nf", old="a\n", new="b\n")
+
+    # When / Then
+    with pytest.raises(UnsafePathError):
+        operation.apply(workspace)
+    assert (tmp_path / "x.nf").read_text() == "a\n"
+
+
+def test_commit_refuses_to_write_through_a_symlink_to_a_missing_target(
+    tmp_path: Path, pipeline: Path
+) -> None:
+    # Given .nf-core.yml is a dangling symlink that points outside
+    (pipeline / ".nf-core.yml").symlink_to(tmp_path / "planted.yml")
+    workspace = Workspace(pipeline)
+    workspace.write(".nf-core.yml", "nf_core_version: 3.3.1\n")
+
+    # When / Then
+    with pytest.raises(UnsafePathError):
+        workspace.commit()
+    assert not (tmp_path / "planted.yml").exists()
+
+
+def test_commit_refuses_to_write_through_a_symlinked_directory(
+    tmp_path: Path, pipeline: Path
+) -> None:
+    # Given a directory of the pipeline that is a link to somewhere else
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (pipeline / "conf").symlink_to(elsewhere, target_is_directory=True)
+    workspace = Workspace(pipeline)
+    workspace.write("conf/base.config", "x = 1\n")
+
+    # When / Then
+    with pytest.raises(UnsafePathError):
+        workspace.commit()
+    assert list(elsewhere.iterdir()) == []
+
+
+def test_reading_a_symlink_to_a_file_outside_the_pipeline_is_refused(
+    tmp_path: Path, pipeline: Path
+) -> None:
+    # Given
+    (tmp_path / "secret.txt").write_text("secret\n")
+    (pipeline / "notes.md").symlink_to(tmp_path / "secret.txt")
+    workspace = Workspace(pipeline)
+
+    # When / Then
+    with pytest.raises(UnsafePathError):
+        workspace.read("notes.md")
+    with pytest.raises(UnsafePathError):
+        Replace("notes.md", old="secret\n", new="public\n").apply(workspace)
+
+
+def test_the_diff_does_not_show_a_file_outside_the_pipeline(
+    tmp_path: Path, pipeline: Path
+) -> None:
+    # Given
+    (tmp_path / "secret.txt").write_text("secret\n")
+    (pipeline / "notes.md").symlink_to(tmp_path / "secret.txt")
+    workspace = Workspace(pipeline)
+    workspace.write("notes.md", "changed\n")
+
+    # When / Then
+    with pytest.raises(UnsafePathError):
+        workspace.diff()
+
+
+def test_a_symlink_inside_the_pipeline_still_works(pipeline: Path) -> None:
+    # Given a link whose target stays in the tree
+    (pipeline / "real.md").write_text("old\n")
+    (pipeline / "link.md").symlink_to("real.md")
+    workspace = Workspace(pipeline)
+
+    # When
+    result = Replace("link.md", old="old\n", new="new\n").apply(workspace)
+    workspace.commit()
+
+    # Then
+    assert result.outcome is Outcome.APPLIED
+    assert (pipeline / "real.md").read_text() == "new\n"
+
+
+def test_a_dot_dot_that_stays_inside_the_pipeline_still_works(
+    pipeline: Path,
+) -> None:
+    # Given
+    workspace = make_workspace(pipeline, {"a.txt": "before\n"})
+    workspace.write("workflows/../a.txt", "after\n")
+
+    # When
+    workspace.commit()
+
+    # Then
+    assert (pipeline / "a.txt").read_text() == "after\n"
 
 
 # Template variables

@@ -382,3 +382,235 @@ def test_patch_script_exits_2_when_claim_already_held(tmp_path: Path) -> None:
     # Then it exits 2 without modifying the claim directory
     assert result.returncode == 2
     assert len(list(claim_dir.glob("*.claim"))) == 1
+
+
+# Template sync PR provenance
+#
+# The title of a sync PR can be copied by a PR from a fork, so every script
+# checks who opened the PR and where it comes from before it fetches the tree.
+
+LIST_SCRIPT = SCRIPTS / "list-open-prs.sh"
+FIX_SCRIPT = SCRIPTS / "fix-template-pr.sh"
+
+GOOD_PR = {
+    "author": {"login": "nf-core-bot"},
+    "isCrossRepository": False,
+    "headRefName": "nf-core-template-merge-4.2.1",
+}
+
+
+def test_a_bot_opened_same_repo_sync_pr_is_accepted() -> None:
+    # Given the PR nf-core-bot opens from a branch of the pipeline itself
+    # When it is checked
+    # Then nothing is refused
+    assert state.sync_pr_refusal(GOOD_PR) is None
+
+
+@pytest.mark.parametrize(
+    ("change", "reason"),
+    [
+        ({"author": {"login": "mallory"}}, "not nf-core-bot"),
+        ({"author": None}, "not nf-core-bot"),
+        ({"isCrossRepository": True}, "fork"),
+        ({"headRefName": "dev"}, "not a nf-core-template-merge-*"),
+        ({"headRefName": "TEMPLATE"}, "not a nf-core-template-merge-*"),
+        ({"headRefName": "x-nf-core-template-merge-1"}, "not a nf-core"),
+    ],
+)
+def test_a_pr_failing_any_one_check_is_refused(
+    change: dict, reason: str
+) -> None:
+    # Given a PR that passes all checks but one
+    pr = {**GOOD_PR, **change}
+
+    # When it is checked
+    refusal = state.sync_pr_refusal(pr)
+
+    # Then it is refused, and the reason names the failed check
+    assert refusal is not None and reason in refusal
+
+
+@pytest.mark.parametrize("missing", list(GOOD_PR))
+def test_a_pr_missing_a_checked_field_is_refused(missing: str) -> None:
+    # Given a reply without one of the fields that decide the check
+    pr = {key: value for key, value in GOOD_PR.items() if key != missing}
+
+    # When it is checked
+    # Then an absent field fails the check instead of passing it
+    assert state.sync_pr_refusal(pr) is not None
+
+
+def test_a_reply_that_is_not_a_pr_object_is_refused() -> None:
+    assert state.sync_pr_refusal(None) is not None
+    assert state.sync_pr_refusal([GOOD_PR]) is not None
+
+
+class StubGh:
+    """A fake `gh` and `git` on PATH, so the scripts run without a network.
+
+    `gh pr view <n> --repo <repo>` answers from `view_<repo>_<n>.json` (slashes
+    become underscores) and `gh search prs` from `search.json`. `git` records
+    that it was called and fails with 7, which marks how far a script got.
+    """
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.log = root / "gh.log"
+        self.git_log = root / "git.log"
+        bin_dir = root / "bin"
+        bin_dir.mkdir()
+        gh = bin_dir / "gh"
+        gh.write_text(
+            "#!/usr/bin/env bash\n"
+            'echo "$*" >> "$STUB_DIR/gh.log"\n'
+            'case "$1 $2" in\n'
+            '  "search prs") cat "$STUB_DIR/search.json" ;;\n'
+            '  "pr view")\n'
+            '    f="$STUB_DIR/view_${5//\\//_}_$3.json"\n'
+            '    [ -f "$f" ] && cat "$f" || { echo 404 >&2; exit 1; } ;;\n'
+            '  *) echo "unexpected gh call: $*" >&2; exit 99 ;;\n'
+            "esac\n"
+        )
+        git = bin_dir / "git"
+        git.write_text(
+            '#!/usr/bin/env bash\necho "$*" >> "$STUB_DIR/git.log"\nexit 7\n'
+        )
+        gh.chmod(0o755)
+        git.chmod(0o755)
+
+    def search(self, prs: list[tuple[str, int]]) -> None:
+        (self.root / "search.json").write_text(
+            json.dumps(
+                [{"repository": {"name": name}, "number": n} for name, n in prs]
+            )
+        )
+
+    def view(self, repo: str, number: int, **change: object) -> None:
+        name = f"view_{repo.replace('/', '_')}_{number}.json"
+        (self.root / name).write_text(json.dumps({**GOOD_PR, **change}))
+
+    def env(self, state_dir: Path) -> dict[str, str]:
+        return {
+            "PATH": f"{self.root / 'bin'}:/usr/bin:/bin:/usr/local/bin",
+            "HOME": str(Path.home()),
+            "NF_TEMPLATE_SYNC_STATE_DIR": str(state_dir),
+            "STUB_DIR": str(self.root),
+        }
+
+    def run(
+        self, script: Path, args: list[str], state_dir: Path
+    ) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["bash", str(script), *args],
+            capture_output=True,
+            text=True,
+            env=self.env(state_dir),
+        )
+
+
+@pytest.fixture
+def stub(tmp_path: Path) -> StubGh:
+    root = tmp_path / "stub"
+    root.mkdir()
+    return StubGh(root)
+
+
+def test_listing_skips_a_forked_pr_and_keeps_the_bots_older_one(
+    stub: StubGh, tmp_path: Path
+) -> None:
+    # Given a fork's PR with a higher number than the bot's, a pipeline whose
+    # only PR is on a non-sync branch, and a pipeline that opted out
+    stub.search(
+        [("rnaseq", 10), ("rnaseq", 12), ("sarek", 5), ("oncoanalyser", 3)]
+    )
+    stub.view("nf-core/rnaseq", 10)
+    stub.view("nf-core/rnaseq", 12, isCrossRepository=True)
+    stub.view("nf-core/sarek", 5, headRefName="dev")
+
+    # When the open PRs are listed
+    result = stub.run(LIST_SCRIPT, [], tmp_path / "state")
+
+    # Then only the bot's PR is listed, the fork cannot shadow it, and the
+    # search itself was narrowed to the bot
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [
+        {"repo": "nf-core/rnaseq", "pr": 10, "key": "nf-core/rnaseq#10"}
+    ]
+    assert "nf-core/rnaseq#12: comes from a fork" in result.stderr
+    assert "nf-core/sarek#5: head branch 'dev'" in result.stderr
+    assert "nf-core/oncoanalyser: opted out" in result.stderr
+    assert "--author nf-core-bot" in stub.log.read_text()
+    assert "oncoanalyser" not in "".join(
+        line for line in stub.log.read_text().splitlines() if "pr view" in line
+    )
+
+
+def test_listing_skips_a_pr_it_cannot_read(
+    stub: StubGh, tmp_path: Path
+) -> None:
+    # Given a search hit whose details GitHub does not return
+    stub.search([("rnaseq", 10)])
+
+    # When the open PRs are listed
+    result = stub.run(LIST_SCRIPT, [], tmp_path / "state")
+
+    # Then it is left out rather than listed unchecked
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == []
+    assert "nf-core/rnaseq#10: cannot read it" in result.stderr
+
+
+@pytest.mark.parametrize("script", [FIX_SCRIPT, PATCH_SCRIPT])
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"author": {"login": "mallory"}},
+        {"isCrossRepository": True},
+        {"headRefName": "dev"},
+    ],
+)
+def test_scripts_refuse_a_pr_that_is_not_the_bots_before_any_git_call(
+    script: Path, change: dict, stub: StubGh, tmp_path: Path
+) -> None:
+    # Given a PR with the sync title that fails one provenance check
+    stub.view("nf-core/rnaseq", 1980, **change)
+    state_dir = tmp_path / "state"
+
+    # When the script is asked to work on it
+    result = stub.run(script, ["nf-core/rnaseq", "1980"], state_dir)
+
+    # Then it refuses with exit 2, nothing was cloned or fetched, and the claim
+    # it briefly held is gone
+    assert result.returncode == 2
+    assert "refusing nf-core/rnaseq#1980" in result.stderr
+    assert not stub.git_log.exists()
+    assert list((state_dir / "claims").glob("*.claim")) == []
+
+
+@pytest.mark.parametrize("script", [FIX_SCRIPT, PATCH_SCRIPT])
+def test_scripts_refuse_a_pr_they_cannot_read(
+    script: Path, stub: StubGh, tmp_path: Path
+) -> None:
+    # Given a PR that GitHub does not return
+    # When the script is asked to work on it
+    result = stub.run(script, ["nf-core/rnaseq", "1980"], tmp_path / "state")
+
+    # Then it refuses instead of carrying on unchecked
+    assert result.returncode == 2
+    assert "cannot read nf-core/rnaseq#1980" in result.stderr
+    assert not stub.git_log.exists()
+
+
+@pytest.mark.parametrize("script", [FIX_SCRIPT, PATCH_SCRIPT])
+def test_scripts_go_on_to_clone_the_bots_own_sync_pr(
+    script: Path, stub: StubGh, tmp_path: Path
+) -> None:
+    # Given the PR nf-core-bot opens from a branch of the pipeline itself
+    stub.view("nf-core/rnaseq", 1980)
+
+    # When the script is asked to work on it
+    result = stub.run(script, ["nf-core/rnaseq", "1980"], tmp_path / "state")
+
+    # Then it gets past the check to the clone (the stub git fails with 7)
+    assert result.returncode == 7
+    assert stub.git_log.read_text().startswith("clone ")
