@@ -2,7 +2,9 @@ from pathlib import Path
 
 import pytest
 
+from nf_migrate.cli import main
 from nf_migrate.migrations import MigrationError, load_migrations
+from nf_migrate.operations import UnsafePathError
 from nf_migrate.runner import upgrade
 from nf_migrate.version import read_version
 
@@ -286,3 +288,99 @@ def test_changes_to_a_file_the_pipeline_lacks_are_reported_not_conflicts(
     assert "`conf/igenomes.config`: skipped, the pipeline has no such" in (
         markdown
     )
+
+
+# Paths that lead outside the pipeline
+@pytest.fixture
+def escaping_migrations(tmp_path: Path) -> Path:
+    """A release that creates a file named after the pipeline."""
+    directory = tmp_path / "escaping_migrations"
+    directory.mkdir()
+    (directory / "v3_3_1.py").write_text(
+        "from nf_migrate.operations import CreateFile, Replace\n"
+        "revision = '3.3.1'\n"
+        "down_revision = '3.2.1'\n"
+        "operations = [\n"
+        "    Replace('base.config', old='retry = 104\\n',"
+        " new='retry = 104 + 175\\n'),\n"
+        "    CreateFile('workflows/{{pipeline_name}}.nf', content='x\\n'),\n"
+        "]\n"
+    )
+    return directory
+
+
+@pytest.fixture
+def escaping_project(project_dir: Path) -> Path:
+    """A pipeline whose name climbs out of its directory."""
+    (project_dir / ".nf-core.yml").write_text(
+        NF_CORE_YML + "template:\n  name: ../../../planted\n"
+    )
+    return project_dir
+
+
+def test_upgrade_refuses_a_path_outside_the_pipeline_and_applies_nothing(
+    escaping_project: Path, escaping_migrations: Path, tmp_path: Path
+) -> None:
+    # Given
+    chain = load_migrations(escaping_migrations)
+
+    # When / Then
+    with pytest.raises(UnsafePathError, match="planted"):
+        upgrade(escaping_project, chain, target="head")
+    assert not (tmp_path / "planted.nf").exists()
+    assert not (escaping_project / "workflows").exists()
+    assert (escaping_project / "base.config").read_text() == "retry = 104\n"
+    assert read_version(escaping_project) == "3.2.1"
+
+
+def test_dry_run_refuses_a_path_outside_the_pipeline(
+    escaping_project: Path, escaping_migrations: Path, tmp_path: Path
+) -> None:
+    # Given
+    chain = load_migrations(escaping_migrations)
+
+    # When / Then
+    with pytest.raises(UnsafePathError):
+        upgrade(escaping_project, chain, target="head", dry_run=True)
+    assert not (tmp_path / "planted.nf").exists()
+
+
+def test_upgrade_refuses_a_nf_core_yml_symlinked_to_a_missing_file(
+    project_dir: Path, migrations_dir: Path, tmp_path: Path
+) -> None:
+    # Given a pipeline whose .nf-core.yml is a link to nowhere
+    (project_dir / ".nf-core.yml").unlink()
+    (project_dir / ".nf-core.yml").symlink_to(tmp_path / "planted.yml")
+    chain = load_migrations(migrations_dir)
+
+    # When / Then
+    with pytest.raises(UnsafePathError):
+        upgrade(project_dir, chain, target="head", current="3.2.1")
+    assert not (tmp_path / "planted.yml").exists()
+
+
+def test_cli_upgrade_reports_a_path_outside_the_pipeline_and_exits_2(
+    escaping_project: Path,
+    escaping_migrations: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # When
+    exit_code = main(
+        [
+            "--project",
+            str(escaping_project),
+            "--migrations",
+            str(escaping_migrations),
+            "upgrade",
+        ]
+    )
+
+    # Then
+    assert exit_code == 2
+    stderr = capsys.readouterr().err
+    assert stderr.startswith("error: ")
+    assert "leads outside" in stderr
+    assert "Traceback" not in stderr
+    assert not (tmp_path / "planted.nf").exists()
+    assert read_version(escaping_project) == "3.2.1"

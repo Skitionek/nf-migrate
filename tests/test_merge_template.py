@@ -135,6 +135,35 @@ def test_conflicting_upgrade_creates_no_commit(
     assert "base.config" in result.report.render_markdown()
 
 
+def test_merge_refuses_a_symlink_to_outside_the_checkout_and_cleans_up(
+    repo: Path, migrations_dir: Path, tmp_path: Path, capsys
+) -> None:
+    # Given dev commits .nf-core.yml as a link to a file outside the repo
+    (repo / ".nf-core.yml").unlink()
+    (repo / ".nf-core.yml").symlink_to(tmp_path / "planted.yml")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "link .nf-core.yml")
+
+    # When
+    exit_code = main(
+        [
+            "--migrations",
+            str(migrations_dir),
+            "merge-template",
+            "--repo",
+            str(repo),
+            "dev",
+            "TEMPLATE",
+        ]
+    )
+
+    # Then
+    assert exit_code == 2
+    assert "leads outside" in capsys.readouterr().err
+    assert not (tmp_path / "planted.yml").exists()
+    assert len(git(repo, "worktree", "list").splitlines()) == 1
+
+
 def test_markdown_report_lists_manual_steps_as_a_checklist(
     repo: Path, migrations_dir: Path
 ) -> None:

@@ -8,6 +8,7 @@ from nf_migrate.autogenerate import generate_migration
 from nf_migrate.detect import detect_version
 from nf_migrate.merge_template import merge_template
 from nf_migrate.migrations import MigrationError, load_migrations
+from nf_migrate.operations import UnsafePathError, project_file
 from nf_migrate.runner import upgrade
 from nf_migrate.variables import TemplateVariableError
 from nf_migrate.version import NF_CORE_YML, read_version, stamp_version
@@ -20,7 +21,7 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
     try:
         return arguments.handler(arguments)
-    except (MigrationError, TemplateVariableError) as error:
+    except (MigrationError, TemplateVariableError, UnsafePathError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
 
@@ -208,7 +209,7 @@ def _upgrade(arguments: argparse.Namespace) -> int:
 
 
 def _stamp(arguments: argparse.Namespace) -> int:
-    nf_core_yml = arguments.project / NF_CORE_YML
+    nf_core_yml = project_file(arguments.project, NF_CORE_YML)
     # Pipelines from before nf-core/tools 2.3 have no .nf-core.yml yet.
     content = nf_core_yml.read_text() if nf_core_yml.exists() else ""
     nf_core_yml.write_text(stamp_version(content, arguments.revision))

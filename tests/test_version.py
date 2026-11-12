@@ -50,3 +50,20 @@ def test_cli_stamp_creates_nf_core_yml_when_missing(tmp_path: Path) -> None:
     # Then
     assert exit_code == 0
     assert read_version(tmp_path) == "1.9"
+
+
+def test_cli_stamp_refuses_a_nf_core_yml_symlinked_outside_the_pipeline(
+    tmp_path: Path, capsys
+) -> None:
+    # Given
+    pipeline = tmp_path / "pipeline"
+    pipeline.mkdir()
+    (pipeline / ".nf-core.yml").symlink_to(tmp_path / "planted.yml")
+
+    # When
+    exit_code = main(["--project", str(pipeline), "stamp", "1.9"])
+
+    # Then
+    assert exit_code == 2
+    assert "leads outside" in capsys.readouterr().err
+    assert not (tmp_path / "planted.yml").exists()
