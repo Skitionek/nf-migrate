@@ -227,14 +227,23 @@ def _run_lint_fix(worktree: Path, fix_name: str, version: str) -> None:
         fix_name,
     ]
     try:
-        # nf-core exits non-zero while any lint test still fails, which is
-        # expected here: only the files it fixed are wanted.
-        subprocess.run(command, check=False, capture_output=True, text=True)
+        result = subprocess.run(
+            command, check=False, capture_output=True, text=True
+        )
     except FileNotFoundError:
         raise MigrationError(
             "--lint-fix needs uv (uvx) to run the nf-core release of the "
             "template"
         ) from None
+    # nf-core exits non-zero while any lint test still fails, which is
+    # expected here: only the files it fixed are wanted. But when nf-core
+    # fails to start (e.g. incompatible Python version), it produces no
+    # stdout; surface the stderr so the caller knows what went wrong.
+    if result.returncode != 0 and not result.stdout.strip():
+        raise MigrationError(
+            f"nf-core@{version} --fix {fix_name} failed to run"
+            + (f":\n{result.stderr.strip()}" if result.stderr.strip() else "")
+        )
 
 
 def _restore_template_render(worktree: Path, head_sha: str) -> None:
