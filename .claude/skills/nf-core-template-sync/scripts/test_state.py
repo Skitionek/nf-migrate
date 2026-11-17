@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for the shared attempt state.
-
-Not picked up by the repository suite (`testpaths = ["tests"]` covers the
-package only). Run them explicitly:
-
-    uv run pytest .claude/skills/nf-core-template-sync/scripts/test_state.py
-"""
+"""Tests for the shared attempt state."""
 
 from __future__ import annotations
 
